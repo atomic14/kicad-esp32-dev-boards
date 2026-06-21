@@ -67,6 +67,21 @@ def add_via(board, pt, net):
     board.Add(v)
 
 
+def prune_orphan_vias(board, net):
+    """Remove GND vias whose bottom end doesn't land in the B.Cu pour. Such a via
+    can't be stitching anything to the main ground (a via *in* the B.Cu pour ties
+    its F.Cu copper to main); it only holds an orphan F.Cu island alive. Every GND
+    pad already reaches the pour, so none depends on these. Geometric, not via the
+    connectivity API (which doesn't return full clusters reliably)."""
+    bcu = merged_polys(board, pcbnew.B_Cu)
+    orphans = [v for v in board.GetTracks()
+               if isinstance(v, pcbnew.PCB_VIA) and v.GetNetCode() == net
+               and not bcu.Contains(v.GetPosition())]
+    for v in orphans:
+        board.Remove(v)
+    return len(orphans)
+
+
 def stitch_pass(board, net):
     """For each F.Cu GND island without a via, drop a stitching via at a point
     that's safely inside both the F.Cu island and the B.Cu pour. Returns the
@@ -123,11 +138,17 @@ def main():
             break
         total += added
         fill(board)
+    # Prune redundant vias stranded in orphan islands, then refill so the now-
+    # empty islands get dropped by island-removal.
+    board.BuildConnectivity()
+    pruned = prune_orphan_vias(board, net)
+    if pruned:
+        fill(board)
     board.BuildConnectivity()
     after = board.GetConnectivity().GetUnconnectedCount(False)
     pcbnew.SaveBoard(path, board)
-    print(f"GND finish: filled; stitched {total} via(s); "
-          f"unconnected {before} -> {after}")
+    print(f"GND finish: filled; stitched {total} via(s); pruned {pruned} orphan "
+          f"via(s); unconnected {before} -> {after}")
     return 0 if after == 0 else 2
 
 
