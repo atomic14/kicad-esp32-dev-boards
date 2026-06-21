@@ -1,0 +1,29 @@
+# Curated config for ESP32-S3-WROOM-2.
+module: ESP32-S3-WROOM-2
+symbol: PCM_Espressif:ESP32-S3-WROOM-2
+do_not_break_out: []   # see notes — no exposed flash/PSRAM pins to exclude
+overrides: {}
+notes: >
+  Source: https://www.atomic14.com/esp32/modules/esp32-s3-wroom-2/
+
+  This module uses in-package OCTAL flash + OCTAL PSRAM. Per atomic14, the
+  internal-PSRAM-dedicated lines are GPIO33-GPIO37 ("dedicated to the in-package
+  octal PSRAM ... not broken out as usable GPIO; don't assign peripherals to
+  them or probe them in a pin scan"). On the ESP32-S3-WROOM-2 Espressif symbol
+  these GPIO are simply NOT exposed as pins at all (the symbol's GPIO set is
+  0-21, 38-48), so there is nothing to add to do_not_break_out for flash/PSRAM —
+  the symbol already omits them. do_not_break_out is therefore intentionally
+  empty.
+
+  NC pins (pins 28/29/30) are auto-detected from the symbol (is_nc) and get
+  no-connect flags by the generator; they need not be listed here.
+
+  Strapping/JTAG/UART-console/USB pins are STILL broken out per dev-board policy
+  and documented here, not excluded:
+    - Strapping: GPIO0 (BOOT, pin 27), GPIO3 (pin 15), GPIO45 (flash voltage,
+      pin 26), GPIO46 (pin 16).
+    - JTAG: MTCK/GPIO39 (32), MTDO/GPIO40 (33), MTDI/GPIO41 (34), MTMS/GPIO42 (35).
+    - UART0 console: U0TXD/GPIO43 (37), U0RXD/GPIO44 (36).
+    - USB: GPIO19/USB_D- (13), GPIO20/USB_D+ (14) — auto-routed to D-/D+ nets.
+    - Note: GPIO47/GPIO48 (SPICLK_P/N_DIFF) are usable but run at 1.8 V on the
+      "V" / VDD_SPI=1.8 V SKUs per atomic14 — level-shift 3.3 V logic.

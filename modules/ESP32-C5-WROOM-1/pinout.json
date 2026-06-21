@@ -1,0 +1,498 @@
+{
+  "symbol": "ESP32-C5-WROOM-1",
+  "footprint": "PCM_Espressif:ESP32-C5-WROOM-1",
+  "datasheet": "",
+  "description": "ESP32-C5-WROOM-1",
+  "pin_count": 29,
+  "gpio_numbers": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28
+  ],
+  "pins": [
+    {
+      "number": "3",
+      "name": "EN/CHIP_PU",
+      "etype": "input",
+      "functions": [
+        "EN",
+        "CHIP_PU"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -30.48,
+      "y": 20.32,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "4",
+      "name": "GPIO2",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO2"
+      ],
+      "gpio": 2,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -30.48,
+      "y": 12.7,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "5",
+      "name": "GPIO3",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO3"
+      ],
+      "gpio": 3,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -30.48,
+      "y": 10.16,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "16",
+      "name": "GPIO5",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO5"
+      ],
+      "gpio": 5,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -30.48,
+      "y": 7.62,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "17",
+      "name": "GPIO4",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO4"
+      ],
+      "gpio": 4,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -30.48,
+      "y": 5.08,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "6",
+      "name": "GPIO0",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO0"
+      ],
+      "gpio": 0,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -30.48,
+      "y": 2.54,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "7",
+      "name": "GPIO1",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO1"
+      ],
+      "gpio": 1,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -30.48,
+      "y": 0,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "8",
+      "name": "GPIO6",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO6"
+      ],
+      "gpio": 6,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -30.48,
+      "y": -2.54,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "9",
+      "name": "GPIO7",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO7"
+      ],
+      "gpio": 7,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -30.48,
+      "y": -5.08,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "10",
+      "name": "GPIO8",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO8"
+      ],
+      "gpio": 8,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -30.48,
+      "y": -10.16,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "11",
+      "name": "GPIO9",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO9"
+      ],
+      "gpio": 9,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -30.48,
+      "y": -12.7,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "12",
+      "name": "GPIO10",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO10"
+      ],
+      "gpio": 10,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -30.48,
+      "y": -15.24,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "24",
+      "name": "U0RXD/GPIO12",
+      "etype": "bidirectional",
+      "functions": [
+        "U0RXD",
+        "GPIO12"
+      ],
+      "gpio": 12,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 30.48,
+      "y": 20.32,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "25",
+      "name": "U0TXD/GPIO11",
+      "etype": "bidirectional",
+      "functions": [
+        "U0TXD",
+        "GPIO11"
+      ],
+      "gpio": 11,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 30.48,
+      "y": 17.78,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "13",
+      "name": "GPIO13/USB_D-",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO13",
+        "USB_D-"
+      ],
+      "gpio": 13,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 30.48,
+      "y": 12.7,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "14",
+      "name": "GPIO14/USB_D+",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO14",
+        "USB_D+"
+      ],
+      "gpio": 14,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 30.48,
+      "y": 10.16,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "15",
+      "name": "GPIO28",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO28"
+      ],
+      "gpio": 28,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 30.48,
+      "y": 5.08,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "18",
+      "name": "GPIO27",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO27"
+      ],
+      "gpio": 27,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 30.48,
+      "y": 2.54,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "19",
+      "name": "GPIO15",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO15"
+      ],
+      "gpio": 15,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 30.48,
+      "y": 0,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "21",
+      "name": "GPIO23",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO23"
+      ],
+      "gpio": 23,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 30.48,
+      "y": -2.54,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "23",
+      "name": "GPIO24",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO24"
+      ],
+      "gpio": 24,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 30.48,
+      "y": -5.08,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "26",
+      "name": "GPIO25",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO25"
+      ],
+      "gpio": 25,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 30.48,
+      "y": -7.62,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "27",
+      "name": "GPIO26",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO26"
+      ],
+      "gpio": 26,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 30.48,
+      "y": -10.16,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "20",
+      "name": "NC",
+      "etype": "no_connect",
+      "functions": [],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": true,
+      "x": 30.48,
+      "y": -12.7,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "22",
+      "name": "NC",
+      "etype": "no_connect",
+      "functions": [],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": true,
+      "x": 30.48,
+      "y": -15.24,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "2",
+      "name": "3V3",
+      "etype": "power_in",
+      "functions": [
+        "3V3"
+      ],
+      "gpio": null,
+      "is_power": true,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 0,
+      "y": 25.4,
+      "angle": 270,
+      "side": "top"
+    },
+    {
+      "number": "1",
+      "name": "GND",
+      "etype": "power_in",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": true,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -22.86,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "28",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -22.86,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "29",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -22.86,
+      "angle": 90,
+      "side": "bottom"
+    }
+  ]
+}

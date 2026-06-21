@@ -1,0 +1,38 @@
+# Curated config for ESP32-S3-MINI-1. Most wiring is auto-derived from
+# pinout.json + footprint geometry; this only holds the decisions that aren't.
+module: ESP32-S3-MINI-1
+symbol: PCM_Espressif:ESP32-S3-MINI-1
+do_not_break_out: []   # empty — see notes (quad flash/PSRAM, no exposed flash pins)
+overrides: {}
+notes: >
+  Source: https://www.atomic14.com/esp32/modules/esp32-s3-mini-1/ (and the
+  Espressif ESP32-S3-MINI-1 datasheet referenced in pinout.json).
+
+  do_not_break_out is EMPTY. The ESP32-S3-MINI-1 uses a QUAD SPI flash/PSRAM
+  interface (variants N8 = 8 MB flash no PSRAM, N4R2 = 4 MB flash + 2 MB quad
+  PSRAM). The internal flash/PSRAM lines use GPIO22-25 and GPIO27-32, which are
+  NOT exposed as individual signal pins in the module's break-out pin table /
+  symbol — so there is nothing to exclude. This is the key difference from the
+  octal-flash ESP32-S3-WROOM-2 (and the octal-PSRAM WROOM-1 variant), where
+  SPIIO6/SPIIO7/SPIDQS are consumed and must be excluded. On the MINI-1 the
+  symbol pins carrying alt-names SPIIO4 (GPIO33), SPIIO5 (GPIO34), SPIIO6
+  (GPIO35), SPIIO7 (GPIO36), SPIDQS (GPIO37) and GPIO38 are all FREELY USABLE
+  general-purpose GPIO per the atomic14 "Safe GPIO" finder — they are broken
+  out, not excluded.
+
+  The symbol declares no NC pins. Per dev-board policy, special-role pins are
+  STILL broken out and only documented here:
+    - Strapping pins: GPIO0/BOOT (boot mode, pin 4), GPIO3 (JTAG-select,
+      floating; pin 7), GPIO45 (VDD_SPI flash voltage, pull-down; pin 41),
+      GPIO46 (boot, pull-down; pin 44). Guidance: avoid driving at power-up.
+    - JTAG: GPIO39 MTCK (pin 35), GPIO40 MTDO (pin 36), GPIO41 MTDI (pin 37),
+      GPIO42 MTMS (pin 38).
+    - UART0 console (boot log): GPIO43/U0TXD (pin 39), GPIO44/U0RXD (pin 40).
+    - USB native: GPIO19/USB_D- (pin 23), GPIO20/USB_D+ (pin 24) — auto-routed
+      to the D-/D+ nets by the generator, not placed on a header.
+    - ADC2 channels are unavailable while Wi-Fi is active; pins remain usable
+      for digital I/O.
+    - GPIO1-GPIO18 emit a brief (~60 us) low pulse at power-up, and
+      GPIO18/19/20 also glitch high — noted, still broken out.
+    - GPIO21: Wi-Fi interference reported on some modules — noted, still
+      broken out.

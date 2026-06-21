@@ -1,0 +1,17 @@
+# Curated config for ESP32-C3-WROOM-02. Most wiring is auto-derived from
+# pinout.json + footprint geometry; this only holds the decisions that aren't.
+module: ESP32-C3-WROOM-02
+symbol: PCM_Espressif:ESP32-C3-WROOM-02
+do_not_break_out: []   # no externally-exposed flash/PSRAM/NC pins on this module
+overrides: {}
+notes: >
+  Source: https://www.atomic14.com/esp32/modules/esp32-c3-wroom-02/ .
+  Flash is internal (quad SPI) and PSRAM is None on this module, so there are
+  NO flash/PSRAM pins on the package edge to reserve, and the page lists no NC
+  pins. Hence do_not_break_out is empty. Per dev-board policy the following
+  special-role pins are STILL broken out and only documented here:
+  strapping pins GPIO2 (boot), GPIO8 (rom_log), GPIO9 (boot_mode) — sampled at
+  reset, avoid driving at power-up; JTAG GPIO4/5/6/7; UART0 console (boot log)
+  GPIO20 (RXD) / GPIO21 (TXD); native USB D-/D+ on GPIO18/GPIO19 (auto-routed to
+  the D-/D+ nets regardless). ADC2 channels (e.g. GPIO5) cannot be read while
+  Wi-Fi is active but remain free for digital use.

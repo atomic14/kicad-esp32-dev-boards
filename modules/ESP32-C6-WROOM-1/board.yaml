@@ -1,0 +1,26 @@
+# Curated config for ESP32-C6-WROOM-1. Most wiring is auto-derived from
+# pinout.json + footprint geometry; this only holds the decisions that aren't.
+module: ESP32-C6-WROOM-1
+symbol: PCM_Espressif:ESP32-C6-WROOM-1
+do_not_break_out:
+  - "22"   # NC (no connection) — pin 22, the only reserved/no-connect pin on this module
+overrides: {}
+notes: >
+  Source: https://www.atomic14.com/esp32/modules/esp32-c6-wroom-1/
+
+  do_not_break_out rationale: per the atomic14 page the SPI flash is internal and
+  PSRAM is None, so NO flash/PSRAM pins (SPIIO*/SPIDQS/SPI_CS*) are pinned out on
+  this module. The only genuinely-reserved pin in the table is pin 22 (NC, type
+  "—"), which is excluded and gets a no-connect flag. No pin is marked hard
+  "do not use".
+
+  Strapping / JTAG / UART-console / USB pins are STILL broken out per dev-board
+  policy and documented here (not excluded):
+    - Strapping (sampled at reset, avoid driving at power-up): MTMS/GPIO4,
+      MTDI/GPIO5, GPIO8 (rom_log), GPIO9 (boot_mode pull-up), GPIO15 (usb_jtag).
+    - JTAG: GPIO4, GPIO5, GPIO6, GPIO7; GPIO15 is usb_jtag.
+    - UART0 console (boot log): U0TXD/GPIO16, U0RXD/GPIO17.
+    - Native USB D+/D-: GPIO13/USB_D+ (pin 14), GPIO12/USB_D- (pin 13) — auto-routed
+      to D+/D- regardless.
+  GPIO0 (pin 8) connects to the boot button via the baseline GPIO0 label; the
+  resulting pin_to_pin ERC warning is expected and correct.

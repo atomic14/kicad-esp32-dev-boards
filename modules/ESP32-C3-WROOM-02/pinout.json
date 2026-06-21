@@ -1,0 +1,343 @@
+{
+  "symbol": "ESP32-C3-WROOM-02",
+  "footprint": "PCM_Espressif:ESP32-C3-WROOM-02",
+  "datasheet": "https://www.espressif.com/sites/default/files/documentation/esp32-c3-wroom-02_datasheet_en.pdf",
+  "description": "ESP32-C3-WROOM-02 is a general-purpose Wi-Fi and Bluetooth LE module. This module features a rich set of peripherals and high performance, which makes it an ideal choice for smart home, industrial automation, health care, consumer electronics, etc.",
+  "pin_count": 19,
+  "gpio_numbers": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    18,
+    19,
+    20,
+    21
+  ],
+  "pins": [
+    {
+      "number": "2",
+      "name": "EN/CHIP_PU",
+      "etype": "input",
+      "functions": [
+        "EN",
+        "CHIP_PU"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -27.94,
+      "y": 17.78,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "18",
+      "name": "GPIO0/ADC1_CH0/XTAL_32K_P",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO0",
+        "ADC1_CH0",
+        "XTAL_32K_P"
+      ],
+      "gpio": 0,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -27.94,
+      "y": 10.16,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "17",
+      "name": "GPIO1/ADC1_CH1/XTAL_32K_N",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO1",
+        "ADC1_CH1",
+        "XTAL_32K_N"
+      ],
+      "gpio": 1,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -27.94,
+      "y": 7.62,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "11",
+      "name": "GPIO20/U0RXD",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO20",
+        "U0RXD"
+      ],
+      "gpio": 20,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": 17.78,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "12",
+      "name": "GPIO21/U0TXD",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO21",
+        "U0TXD"
+      ],
+      "gpio": 21,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": 15.24,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "13",
+      "name": "GPIO18/USB_D-",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO18",
+        "USB_D-"
+      ],
+      "gpio": 18,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": 10.16,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "14",
+      "name": "GPIO19/USB_D+",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO19",
+        "USB_D+"
+      ],
+      "gpio": 19,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": 7.62,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "16",
+      "name": "GPIO2/ADC1_CH2",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO2",
+        "ADC1_CH2"
+      ],
+      "gpio": 2,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": 2.54,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "15",
+      "name": "GPIO3/ADC1_CH3",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO3",
+        "ADC1_CH3"
+      ],
+      "gpio": 3,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": 0,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "3",
+      "name": "GPIO4/ADC1_CH4",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO4",
+        "ADC1_CH4"
+      ],
+      "gpio": 4,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": -2.54,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "4",
+      "name": "GPIO5/ADC2_CH0",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO5",
+        "ADC2_CH0"
+      ],
+      "gpio": 5,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": -5.08,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "5",
+      "name": "GPIO6",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO6"
+      ],
+      "gpio": 6,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": -7.62,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "6",
+      "name": "GPIO7",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO7"
+      ],
+      "gpio": 7,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": -10.16,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "7",
+      "name": "GPIO8",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO8"
+      ],
+      "gpio": 8,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": -12.7,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "8",
+      "name": "GPIO9",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO9"
+      ],
+      "gpio": 9,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": -15.24,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "10",
+      "name": "GPIO10",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO10"
+      ],
+      "gpio": 10,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": -17.78,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "1",
+      "name": "3V3",
+      "etype": "power_in",
+      "functions": [
+        "3V3"
+      ],
+      "gpio": null,
+      "is_power": true,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 0,
+      "y": 22.86,
+      "angle": 270,
+      "side": "top"
+    },
+    {
+      "number": "19",
+      "name": "GND",
+      "etype": "power_in",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": true,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -22.86,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "9",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -22.86,
+      "angle": 90,
+      "side": "bottom"
+    }
+  ]
+}

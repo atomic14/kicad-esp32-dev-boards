@@ -1,0 +1,885 @@
+{
+  "symbol": "ESP32-C6-MINI-1/U",
+  "footprint": "PCM_Espressif:ESP32-C6-MINI-1",
+  "datasheet": "https://www.espressif.com/sites/default/files/documentation/esp32-c6-mini-1_datasheet_en.pdf",
+  "description": "ESP32-C6-MINI-1 is a module that supports 2.4 GHz Wi-Fi 6 (802.11 ax), Bluetooth\u00ae 5 (LE), Zigbee and Thread (802.15.4)",
+  "pin_count": 53,
+  "gpio_numbers": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+  ],
+  "pins": [
+    {
+      "number": "8",
+      "name": "EN/CHIP_PU",
+      "etype": "input",
+      "functions": [
+        "EN",
+        "CHIP_PU"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -27.94,
+      "y": 27.94,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "12",
+      "name": "GPIO0/ADC1_CH0/XTAL_32K_P",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO0",
+        "ADC1_CH0",
+        "XTAL_32K_P"
+      ],
+      "gpio": 0,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -27.94,
+      "y": 22.86,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "13",
+      "name": "GPIO1/ADC1_CH1/XTAL_32K_N",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO1",
+        "ADC1_CH1",
+        "XTAL_32K_N"
+      ],
+      "gpio": 1,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -27.94,
+      "y": 20.32,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "5",
+      "name": "GPIO2/ADC1_CH2",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO2",
+        "ADC1_CH2"
+      ],
+      "gpio": 2,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -27.94,
+      "y": 17.78,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "6",
+      "name": "GPIO3/ADC1_CH3",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO3",
+        "ADC1_CH3"
+      ],
+      "gpio": 3,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -27.94,
+      "y": 15.24,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "9",
+      "name": "MTMS/GPIO4/ADC1_CH4",
+      "etype": "bidirectional",
+      "functions": [
+        "MTMS",
+        "GPIO4",
+        "ADC1_CH4"
+      ],
+      "gpio": 4,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -27.94,
+      "y": 7.62,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "10",
+      "name": "MTDI/GPIO5/ADC1_CH5",
+      "etype": "bidirectional",
+      "functions": [
+        "MTDI",
+        "GPIO5",
+        "ADC1_CH5"
+      ],
+      "gpio": 5,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -27.94,
+      "y": 5.08,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "15",
+      "name": "MTCK/GPIO6/ADC1_CH6",
+      "etype": "bidirectional",
+      "functions": [
+        "MTCK",
+        "GPIO6",
+        "ADC1_CH6"
+      ],
+      "gpio": 6,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -27.94,
+      "y": 2.54,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "16",
+      "name": "MTDO/GPIO7",
+      "etype": "bidirectional",
+      "functions": [
+        "MTDO",
+        "GPIO7"
+      ],
+      "gpio": 7,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": -27.94,
+      "y": 0,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "4",
+      "name": "NC",
+      "etype": "no_connect",
+      "functions": [],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": true,
+      "x": -25.4,
+      "y": -5.08,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "7",
+      "name": "NC",
+      "etype": "no_connect",
+      "functions": [],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": true,
+      "x": -25.4,
+      "y": -7.62,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "21",
+      "name": "NC",
+      "etype": "no_connect",
+      "functions": [],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": true,
+      "x": -25.4,
+      "y": -10.16,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "32",
+      "name": "NC",
+      "etype": "no_connect",
+      "functions": [],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": true,
+      "x": -25.4,
+      "y": -12.7,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "33",
+      "name": "NC",
+      "etype": "no_connect",
+      "functions": [],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": true,
+      "x": -25.4,
+      "y": -15.24,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "34",
+      "name": "NC",
+      "etype": "no_connect",
+      "functions": [],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": true,
+      "x": -25.4,
+      "y": -17.78,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "35",
+      "name": "NC",
+      "etype": "no_connect",
+      "functions": [],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": true,
+      "x": -25.4,
+      "y": -20.32,
+      "angle": 0,
+      "side": "left"
+    },
+    {
+      "number": "31",
+      "name": "U0TXD/GPIO16",
+      "etype": "bidirectional",
+      "functions": [
+        "U0TXD",
+        "GPIO16"
+      ],
+      "gpio": 16,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": 27.94,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "30",
+      "name": "U0RXD/GPIO17",
+      "etype": "bidirectional",
+      "functions": [
+        "U0RXD",
+        "GPIO17"
+      ],
+      "gpio": 17,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": 25.4,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "18",
+      "name": "GPIO13/USB_D+",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO13",
+        "USB_D+"
+      ],
+      "gpio": 13,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": 20.32,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "17",
+      "name": "GPIO12/USB_D-",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO12",
+        "USB_D-"
+      ],
+      "gpio": 12,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": 17.78,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "22",
+      "name": "GPIO8",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO8"
+      ],
+      "gpio": 8,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": 7.62,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "23",
+      "name": "GPIO9",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO9"
+      ],
+      "gpio": 9,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": 5.08,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "19",
+      "name": "GPIO14",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO14"
+      ],
+      "gpio": 14,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": 2.54,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "20",
+      "name": "GPIO15",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO15"
+      ],
+      "gpio": 15,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": 0,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "24",
+      "name": "GPIO18",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO18"
+      ],
+      "gpio": 18,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": -2.54,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "25",
+      "name": "GPIO19",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO19"
+      ],
+      "gpio": 19,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": -5.08,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "26",
+      "name": "GPIO20",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO20"
+      ],
+      "gpio": 20,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": -7.62,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "27",
+      "name": "GPIO21",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO21"
+      ],
+      "gpio": 21,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": -10.16,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "28",
+      "name": "GPIO22",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO22"
+      ],
+      "gpio": 22,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": -12.7,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "29",
+      "name": "GPIO23",
+      "etype": "bidirectional",
+      "functions": [
+        "GPIO23"
+      ],
+      "gpio": 23,
+      "is_power": false,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 27.94,
+      "y": -15.24,
+      "angle": 180,
+      "side": "right"
+    },
+    {
+      "number": "3",
+      "name": "3V3",
+      "etype": "power_in",
+      "functions": [
+        "3V3"
+      ],
+      "gpio": null,
+      "is_power": true,
+      "is_gnd": false,
+      "is_nc": false,
+      "x": 0,
+      "y": 33.02,
+      "angle": 270,
+      "side": "top"
+    },
+    {
+      "number": "1",
+      "name": "GND",
+      "etype": "power_in",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": true,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "11",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "14",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "2",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "36",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "37",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "38",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "39",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "40",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "41",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "42",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "43",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "44",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "45",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "46",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "47",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "48",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "49",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "50",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "51",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "52",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    },
+    {
+      "number": "53",
+      "name": "GND",
+      "etype": "passive",
+      "functions": [
+        "GND"
+      ],
+      "gpio": null,
+      "is_power": false,
+      "is_gnd": true,
+      "is_nc": false,
+      "x": 0,
+      "y": -33.02,
+      "angle": 90,
+      "side": "bottom"
+    }
+  ]
+}

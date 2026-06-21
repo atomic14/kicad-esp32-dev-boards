@@ -1,0 +1,7 @@
+# Curated config for ESP32-C3-MINI-1. Most wiring is auto-derived from
+# pinout.json + footprint geometry; this only holds the decisions that aren't.
+module: ESP32-C3-MINI-1
+symbol: PCM_Espressif:ESP32-C3-MINI-1
+do_not_break_out: []   # no internal flash/PSRAM pins exposed on this module
+overrides: {}
+notes: ""

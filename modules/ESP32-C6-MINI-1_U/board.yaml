@@ -1,0 +1,32 @@
+# Curated config for ESP32-C6-MINI-1/U. Most wiring is auto-derived from
+# pinout.json + footprint geometry; this only holds the decisions that aren't.
+module: ESP32-C6-MINI-1/U
+symbol: PCM_Espressif:ESP32-C6-MINI-1/U
+do_not_break_out:        # NC pins only — see notes (atomic14 + symbol agree)
+  - 4
+  - 7
+  - 21
+  - 32
+  - 33
+  - 34
+  - 35
+overrides: {}
+notes: >
+  Source: https://www.atomic14.com/esp32/modules/esp32-c6-mini-1/
+
+  do_not_break_out holds ONLY the module's NC (not-connected) pins — symbol pin
+  numbers 4, 7, 21, 32, 33, 34, 35 (etype no_connect in pinout.json). The
+  atomic14 page lists exactly these as the NC pins. There are NO exposed
+  internal SPI flash or PSRAM lines on this module: the flash is internal and
+  the module breaks out no dedicated flash pins, and the part has no PSRAM
+  ("None"). So no SPIIO*/SPIDQS/SPI_CS* pins exist to exclude.
+
+  All boot-sensitive / special-role pins ARE still broken out per dev-board
+  policy and documented here (not excluded):
+    - Strapping: GPIO4 (MTMS), GPIO5 (MTDI), GPIO8 (rom_log), GPIO9 (boot_mode,
+      default pull-up), GPIO15 (usb_jtag). Avoid driving these at power-up.
+    - JTAG: GPIO4, GPIO5, GPIO6, GPIO7.
+    - UART0 console (boot log): GPIO16 (U0TXD), GPIO17 (U0RXD).
+    - USB: GPIO12 (USB_D-), GPIO13 (USB_D+) — auto-routed to D-/D+ regardless.
+    - EN/CHIP_PU -> EN (reset button), GPIO0 -> GPIO0 (boot button).
+  Safe general-purpose GPIOs per the page: 0,1,2,3,14,18,19,20,21,22,23.

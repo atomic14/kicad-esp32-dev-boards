@@ -1,0 +1,10 @@
+# Curated config for ESP32-S3-WROOM-1.
+module: ESP32-S3-WROOM-1
+symbol: PCM_Espressif:ESP32-S3-WROOM-1
+# Internal SPI flash/PSRAM pins (octal) — must NOT be broken out.
+do_not_break_out:
+  - SPIDQS
+  - SPIIO6
+  - SPIIO7
+overrides: {}
+notes: "Flash/PSRAM pins on the right edge excluded from breakout."

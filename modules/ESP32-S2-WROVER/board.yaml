@@ -1,0 +1,40 @@
+# Curated config for ESP32-S2-WROVER. Most wiring is auto-derived from
+# pinout.json + footprint geometry; this only holds the decisions that aren't.
+module: ESP32-S2-WROVER
+symbol: PCM_Espressif:ESP32-S2-WROVER
+do_not_break_out: []   # empty — see notes
+overrides: {}
+notes: >
+  Source: https://www.atomic14.com/esp32/modules/esp32-s2-wrover/ (and the
+  Espressif datasheet referenced in pinout.json).
+
+  do_not_break_out is EMPTY. The S2-WROVER (quad SPI flash + quad PSRAM) keeps
+  its flash/PSRAM on dedicated internal module pins that are NOT exposed in the
+  symbol's break-out pin table — unlike octal modules (e.g. WROOM-2) there are
+  no SPIIO6/SPIIO7/SPIDQS pins to exclude. The only flash-adjacent break-out is
+  SPI_CS1/GPIO26 (pin 25), which is usable as ordinary GPIO. The atomic14 page
+  lists NO hard "do not use" pins in its break-out table (its legend mentions
+  "reserved (flash/USB)" generically, but flags no specific pin), and the symbol
+  declares no NC pins. So nothing is genuinely reserved and the list is empty.
+
+  Per dev-board policy, special-role pins are STILL broken out and only
+  documented here (atomic14 wording in quotes):
+    - Strapping pins: GPIO0/BOOT (pin 3, "pull-up, boot_mode"),
+      GPIO45 (pin 39, "pull-down, flash_voltage" / VDD_SPI),
+      GPIO46 (pin 40, "pull-down, boot"). Page note:
+      "GPIOs sampled at reset; avoid driving these at power-up."
+    - JTAG: GPIO39 MTCK (pin 33), GPIO40 MTDO (pin 34), GPIO41 MTDI (pin 35),
+      GPIO42 MTMS (pin 36) — all "JTAG".
+    - UART0 console (boot log): GPIO43/U0TXD (pin 37, "UART0 console (boot log)"),
+      GPIO44/U0RXD (pin 38, "UART0 console (boot log)").
+    - USB native: GPIO19/USB_D- (pin 22) and GPIO20/USB_D+ (pin 23),
+      "native USB D±" — auto-routed to the D-/D+ nets by the generator, not
+      placed on a header.
+    - Input-only: GPIO46 (pin 40, "I" type, "input-only (no output/pull-up)");
+      also a strapping pin and flagged End of Life on the page.
+    - ADC2 channels (GPIO11-18) are "unusable while Wi-Fi is on"; pins remain
+      usable for digital I/O.
+    - The module/symbol itself is marked NRND (Not Recommended for New Designs)
+      in pinout.json; still generated as a reference dev board, noted only.
+  EN/CHIP_PU (pin 41) routes to the EN net and the reset button. GPIO0 routes to
+  the boot button (adds an expected pin_to_pin ERC warning).

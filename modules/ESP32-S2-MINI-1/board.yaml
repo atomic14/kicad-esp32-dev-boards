@@ -1,0 +1,30 @@
+# Curated config for ESP32-S2-MINI-1. Most wiring is auto-derived from
+# pinout.json + footprint geometry; this only holds the decisions that aren't.
+module: ESP32-S2-MINI-1
+symbol: PCM_Espressif:ESP32-S2-MINI-1
+do_not_break_out: []   # empty — see notes
+overrides: {}
+notes: >
+  Source: https://www.atomic14.com/esp32/modules/esp32-s2-mini-1/ (and the
+  Espressif datasheet referenced in pinout.json).
+
+  do_not_break_out is EMPTY. The S2-MINI-1 keeps its SPI flash on dedicated
+  internal module pins that are NOT exposed in the symbol's break-out pin table
+  (the symbol's only flash-adjacent break-out is SPI_CS1/GPIO26, which is
+  usable), so there are no internal flash/PSRAM pins to exclude and the page
+  lists no hard "do not use" pins. Per dev-board policy, special-role pins are
+  STILL broken out and only documented here:
+    - Strapping pins: GPIO0/BOOT (boot mode, pin 4), GPIO45 (flash voltage /
+      VDD_SPI, pin 41), GPIO46 (boot, pin 44).
+    - JTAG: GPIO39 MTCK (35), GPIO40 MTDO (36), GPIO41 MTDI (37),
+      GPIO42 MTMS (38).
+    - UART0 console (boot log): GPIO43/U0TXD (39), GPIO44/U0RXD (40).
+    - USB native: GPIO19/USB_D- (23), GPIO20/USB_D+ (24) — auto-routed to the
+      D-/D+ nets by the generator, not placed on a header.
+    - Input-only: GPIO46 (pin 44, "I" type, no output/pull-up) — also a
+      strapping pin.
+    - GPIO45 is flagged NRND (Not Recommended for New Designs) by the page;
+      still broken out, noted only.
+    - ADC2 channels (GPIO11-18) are unavailable while Wi-Fi is active; pins
+      remain usable for digital I/O.
+  Pin 27 is NC in the symbol (handled automatically, no-connect flag).

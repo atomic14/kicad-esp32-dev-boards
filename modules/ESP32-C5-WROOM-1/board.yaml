@@ -1,0 +1,25 @@
+# Curated config for ESP32-C5-WROOM-1. Most wiring is auto-derived from
+# pinout.json + footprint geometry; this only holds the decisions that aren't.
+module: ESP32-C5-WROOM-1
+symbol: PCM_Espressif:ESP32-C5-WROOM-1
+do_not_break_out:
+  - "20"   # NC (no internal connection)
+  - "22"   # NC (no internal connection)
+overrides: {}
+notes: >
+  Source: https://www.atomic14.com/esp32/modules/esp32-c5-wroom-1/
+
+  No internal flash/PSRAM pins are exposed on this module (quad flash, fully
+  internal) and the page marks no pin as hard "do not use", so do_not_break_out
+  contains ONLY the two genuine no-connect pins (symbol pins 20 and 22, etype
+  no_connect). They get explicit no-connect flags. Pin 19 is GPIO15 in the
+  symbol (atomic14 lists it as NC/IO15, usable as GPIO15/SPICS1) so it is broken
+  out normally.
+
+  These special-role pins are STILL broken out per dev-board policy and are
+  documented here rather than excluded:
+    - Strapping pins: GPIO7 (9), GPIO25 (26), GPIO26 (27) float; GPIO27 (18),
+      GPIO28 (15) pull-up; MTMS/GPIO2 (4) and MTDI/GPIO3 (5) float.
+    - JTAG: MTMS/GPIO2 (4), MTDI/GPIO3 (5), MTCK/GPIO4 (17), MTDO/GPIO5 (16).
+    - UART0 console (boot log): U0TXD/GPIO11 (25), U0RXD/GPIO12 (24).
+    - Native USB: GPIO13/USB_D- (13), GPIO14/USB_D+ (14) auto-routed to D-/D+.

@@ -1,0 +1,35 @@
+# Curated config for ESP32-S2-WROOM. Most wiring is auto-derived from
+# pinout.json + footprint geometry; this only holds the decisions that aren't.
+module: ESP32-S2-WROOM
+symbol: PCM_Espressif:ESP32-S2-WROOM
+do_not_break_out: []   # empty — see notes
+overrides: {}
+notes: >
+  Source: https://www.atomic14.com/esp32/modules/esp32-s2-wroom/ (and the
+  Espressif ESP32-S2-WROOM datasheet referenced in pinout.json).
+
+  do_not_break_out is EMPTY. The ESP32-S2-WROOM integrates 4 MB SPI flash and
+  has NO PSRAM. The SoC pins that connect to the internal flash (the GPIOs that
+  are missing between the broken-out pins — the symbol's pin table jumps from
+  GPIO21 to GPIO26, then GPIO33+) are simply NOT exposed on the module package,
+  so there is nothing internal-flash/PSRAM to exclude. No symbol pin is NC
+  (is_nc) and the atomic14 page marks no pin as a hard "do not use" / reserved.
+  The only flash-adjacent exposed pin is SPI_CS1/GPIO26 (pin 25), a general SPI
+  chip-select usable as ordinary GPIO — broken out (same as on S2-MINI-1).
+
+  Per dev-board policy, special-role pins are STILL broken out and only
+  documented here:
+    - Strapping pins (sampled at reset; avoid driving at power-up):
+      GPIO0/BOOT (pin 3, boot_mode), GPIO45 (pin 39, flash_voltage / VDD_SPI),
+      GPIO46 (pin 40, boot).
+    - JTAG: GPIO39 MTCK (pin 33), GPIO40 MTDO (pin 34), GPIO41 MTDI (pin 35),
+      GPIO42 MTMS (pin 36).
+    - UART0 console (boot log): GPIO43/U0TXD (pin 37), GPIO44/U0RXD (pin 38).
+    - USB native: GPIO19/USB_D- (pin 22), GPIO20/USB_D+ (pin 23) — auto-routed
+      to the D-/D+ nets by the generator, not placed on a header.
+    - Input-only: GPIO46 (pin 40, "input" type, no output/pull-up) — also a
+      strapping pin, and the page flags it End-of-Life.
+    - ADC2 channels (e.g. GPIO11-18) are unavailable while Wi-Fi is active;
+      pins remain usable for digital I/O.
+  The module/SoC itself is marked NRND (Not Recommended for New Designs) per
+  the datasheet description; all pins still broken out, noted only.

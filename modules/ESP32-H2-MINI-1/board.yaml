@@ -1,0 +1,21 @@
+# Curated config for ESP32-H2-MINI-1. Most wiring is auto-derived from
+# pinout.json + footprint geometry; this only holds the decisions that aren't.
+module: ESP32-H2-MINI-1
+symbol: PCM_Espressif:ESP32-H2-MINI-1
+do_not_break_out: []   # no dedicated internal flash/PSRAM signal pins are exposed
+overrides: {}
+notes: >
+  Source: https://www.atomic14.com/esp32/modules/esp32-h2-mini-1/ .
+  do_not_break_out is empty: the ESP32-H2-MINI-1 has internal SPI flash and
+  exposes NO dedicated flash/PSRAM signal pins (no SPICS0/SPIHD/SPIWP/SPICLK/
+  SPID/SPIQ/SPIIO6/SPIIO7/SPIDQS). The FSPI* alt-functions on GPIO0/2/3/4/5
+  (FSPIQ/FSPIWP/FSPIHD/FSPICLK/FSPID) are the user-accessible general-purpose
+  SPI, not the internal memory bus, so those GPIO are broken out normally.
+  The module's NC pins (4, 7, 17, 28, 29, 32, 33, 34, 35) are reserved/not-
+  connected and are auto-excluded by the generator (is_nc), not via this list.
+  Per dev-board policy the following special-role pins are STILL broken out and
+  documented here (not excluded): strapping pins GPIO8 (pin 22), GPIO9 (pin 23,
+  boot mode), GPIO25 (pin 25); JTAG pins GPIO2/MTMS, GPIO3/MTDO, GPIO4/MTCK,
+  GPIO5/MTDI; UART0 console GPIO23/U0RXD (pin 30) and GPIO24/U0TXD (pin 31).
+  Native USB: GPIO26/USB_D- (pin 26) and GPIO27/USB_D+ (pin 27) are auto-routed
+  to the D-/D+ nets and not placed on a header.
