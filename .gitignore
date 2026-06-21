@@ -18,6 +18,7 @@ fp-info-cache
 /modules/*/*.kicad_sch
 /modules/*/*.kicad_pro
 /modules/*/*.kicad_pcb
+/modules/*/*.kicad_dru
 /modules/*/fp-lib-table
 /modules/*/sym-lib-table
 /modules/*/3d-models/

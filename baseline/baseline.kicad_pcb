@@ -1290,16 +1290,108 @@
 		(path "/5a54ccec-8055-486a-a216-590abaf9dcdc")
 		(sheetname "/")
 		(sheetfile "baseline.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "A5" "A6" "A7" "A8" "A4_B9" "B4_A9" "B8" "B7" "B6" "B5" "S1" "S2"
-					"S3" "S4" "A1_B12" "B1_A12"
-				)
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
+		(fp_line
+			(start -0.75 -5.79)
+			(end -0.46 -6.14)
+			(stroke
+				(width 0.2)
+				(type default)
+			)
+			(layer "F.Cu")
+			(uuid "ed5df1e4-8acf-4068-a018-8549090d1e50")
+		)
+		(fp_line
+			(start -0.75 -5.01)
+			(end -0.75 -5.79)
+			(stroke
+				(width 0.2)
+				(type default)
+			)
+			(layer "F.Cu")
+			(uuid "9f63c705-8765-4fe8-9678-0579d9351bc1")
+		)
+		(fp_line
+			(start -0.25 -4.18)
+			(end -0.25 -3.5)
+			(stroke
+				(width 0.2)
+				(type default)
+			)
+			(layer "F.Cu")
+			(uuid "f6d718fb-4c5e-4ca8-a146-ab41ecd9dd19")
+		)
+		(fp_line
+			(start -0.25 -3.5)
+			(end 0.01 -3.24)
+			(stroke
+				(width 0.2)
+				(type default)
+			)
+			(layer "F.Cu")
+			(uuid "eb670a0f-74b3-4823-b51c-a6c5cc4a5d84")
+		)
+		(fp_line
+			(start -0.15 -6.14)
+			(end -0.46 -6.14)
+			(stroke
+				(width 0.2)
+				(type default)
+			)
+			(layer "F.Cu")
+			(uuid "e94514b1-6c6e-48ad-8ea3-2335dcf0b8d9")
+		)
+		(fp_line
+			(start 0.01 -3.24)
+			(end 0.41 -3.24)
+			(stroke
+				(width 0.2)
+				(type default)
+			)
+			(layer "F.Cu")
+			(uuid "d3755adf-823b-4eaa-bfa5-c6dfaa5d07ae")
+		)
+		(fp_line
+			(start 0.25 -5.74)
+			(end -0.15 -6.14)
+			(stroke
+				(width 0.2)
+				(type default)
+			)
+			(layer "F.Cu")
+			(uuid "27a753ed-ccc0-4b29-8ef3-669becf8485f")
+		)
+		(fp_line
+			(start 0.25 -5.32)
+			(end 0.25 -5.74)
+			(stroke
+				(width 0.2)
+				(type default)
+			)
+			(layer "F.Cu")
+			(uuid "6a6323de-4c59-4901-abd8-9dc60104fac2")
+		)
+		(fp_line
+			(start 0.75 -4.18)
+			(end 0.75 -3.58)
+			(stroke
+				(width 0.2)
+				(type default)
+			)
+			(layer "F.Cu")
+			(uuid "1fec1a37-6cc9-487a-b3f3-1f669efe7ee4")
+		)
+		(fp_line
+			(start 0.75 -3.58)
+			(end 0.41 -3.24)
+			(stroke
+				(width 0.2)
+				(type default)
+			)
+			(layer "F.Cu")
+			(uuid "a0f8e4e5-9746-4617-8ae7-99fdd92b456c")
+		)
 		(fp_poly
 			(pts
 				(xy -3.55 -5.37) (xy -2.85 -5.37) (xy -2.85 -4.13) (xy -3.55 -4.13)
@@ -1323,18 +1415,6 @@
 			(fill yes)
 			(layer "F.Mask")
 			(uuid "7b03d990-771a-4f71-a45e-60e2651b69bb")
-		)
-		(fp_poly
-			(pts
-				(xy -1.95 -5.37) (xy -1.55 -5.37) (xy -1.55 -4.13) (xy -1.95 -4.13)
-			)
-			(stroke
-				(width 0.01)
-				(type solid)
-			)
-			(fill yes)
-			(layer "F.Mask")
-			(uuid "8a81a084-9157-4262-995c-e982b7a06e97")
 		)
 		(fp_poly
 			(pts
@@ -1395,18 +1475,6 @@
 			(fill yes)
 			(layer "F.Mask")
 			(uuid "b2488f51-e961-4dc6-8938-106a5a0e130e")
-		)
-		(fp_poly
-			(pts
-				(xy 1.05 -5.37) (xy 1.45 -5.37) (xy 1.45 -4.13) (xy 1.05 -4.13)
-			)
-			(stroke
-				(width 0.01)
-				(type solid)
-			)
-			(fill yes)
-			(layer "F.Mask")
-			(uuid "a3233fcf-ab04-4946-b4e4-cf5e15fa37ce")
 		)
 		(fp_poly
 			(pts
@@ -1680,15 +1748,6 @@
 			(pintype "bidirectional")
 			(uuid "f4984525-dc93-43dd-b7cb-9ce4a7063e70")
 		)
-		(pad "A8" smd rect
-			(at 1.25 -4.75)
-			(size 0.3 1.14)
-			(layers "F.Cu" "F.Paste")
-			(net "unconnected-(J1-SBU1-PadA8)")
-			(pinfunction "SBU1_A8")
-			(pintype "bidirectional+no_connect")
-			(uuid "131c4d14-3f38-4325-9fd8-d6a1141a9fe0")
-		)
 		(pad "B1_A12" smd rect
 			(at 3.2 -4.75)
 			(size 0.6 1.14)
@@ -1735,15 +1794,6 @@
 			(pinfunction "DN2_B7")
 			(pintype "bidirectional")
 			(uuid "65c33812-ae19-4488-9419-d5703642bfed")
-		)
-		(pad "B8" smd rect
-			(at -1.75 -4.75)
-			(size 0.3 1.14)
-			(layers "F.Cu" "F.Paste")
-			(net "unconnected-(J1-SBU2-PadB8)")
-			(pinfunction "SBU2_B8")
-			(pintype "bidirectional+no_connect")
-			(uuid "4c3ddefc-93b5-4bd6-af07-73a485c3740e")
 		)
 		(pad "S1" thru_hole oval
 			(at -4.325 -4.17)

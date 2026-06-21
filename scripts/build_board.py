@@ -391,8 +391,11 @@ def main():
     # Emit a project file + blank board copied from the baseline project, with
     # the project basename rebranded so each module opens standalone in KiCad.
     base = REPO / "baseline"
-    for ext in ("kicad_pro", "kicad_pcb"):
-        text = (base / f"baseline.{ext}").read_text().replace("baseline", safe)
+    for ext in ("kicad_pro", "kicad_pcb", "kicad_dru"):
+        src = base / f"baseline.{ext}"
+        if not src.exists():
+            continue
+        text = src.read_text().replace("baseline", safe)
         (mod_dir / f"{safe}.{ext}").write_text(text)
 
     # --- lay out the PCB: place module + headers, assign nets, draw outline ---

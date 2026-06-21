@@ -1,0 +1,11 @@
+(version 1)
+
+# USB-C breaks out on 0.5mm-pitch pads, so its escape neck can't hold the
+# board's 0.2mm clearance/width against the connector's own neighbouring pads.
+# Allow a 0.15mm neck wherever a USB-class net is involved (the rest of the
+# board stays at 0.2mm). Keeps the USB-C escape manufacturable and DRC-clean.
+(rule "USB fine neck"
+	(condition "A.NetClass == 'USB' || B.NetClass == 'USB'")
+	(constraint clearance (min 0.15mm))
+	(constraint hole_clearance (min 0.15mm))
+	(constraint track_width (min 0.15mm)))
