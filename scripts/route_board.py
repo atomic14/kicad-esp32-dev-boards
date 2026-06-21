@@ -60,6 +60,9 @@ POWER_WIDTH = 0.4     # +3V3/+5V routed wider than signals, and routed FIRST so
                       # the bottom freely at the default via cost — lowering the
                       # via cost only added vias to the power path without helping.
 POWER_NETS = ["+3V3", "+5V"]
+GND_VIA_PAD_CLEARANCE = 0.1  # place GND stitching vias BESIDE pads (not in them),
+                             # this far from the pad edge; via-in-pad is normally
+                             # discouraged on SMD pads
 # USB-C / CC nets that need the fine-neck pass (constant across boards — all
 # share the baseline J1 USB-C connector).
 USB_NETS = ["D+", "D-", "Net-(J1-CC1)", "Net-(J1-CC2)"]
@@ -72,6 +75,19 @@ def find_tool(explicit: str | None) -> Path:
             return Path(cand)
     raise SystemExit("KiCadRoutingTools not found — pass --tool DIR or set "
                      "$KICAD_ROUTING_TOOLS (sibling ../KiCadRoutingTools expected).")
+
+
+def kicad_python() -> str:
+    """KiCad's bundled python (has pcbnew, for zone filling). Derived from the
+    kicad-cli path in library.json; falls back to `python3` (Linux distros put
+    pcbnew in the system python)."""
+    lib = REPO / "library.json"
+    if lib.exists():
+        cli = Path(json.loads(lib.read_text())["kicad_cli"])
+        cand = cli.parents[1] / "Frameworks/Python.framework/Versions/Current/bin/python3"
+        if cand.exists():
+            return str(cand)
+    return "python3"
 
 
 def board_nets(pcb: Path) -> set[str]:
@@ -144,7 +160,8 @@ def run_planes(tool: Path, inp: Path, out: Path, net: str) -> str:
     cmd = ["python3", "route_planes.py", str(inp), str(out),
            "--nets", *([net] * len(LAYERS)), "--plane-layers", *LAYERS,
            "--via-size", str(VIA_SIZE), "--via-drill", str(VIA_DRILL),
-           "--track-width", str(TRACK_WIDTH)]
+           "--track-width", str(TRACK_WIDTH),
+           "--same-net-pad-clearance", str(GND_VIA_PAD_CLEARANCE)]
     print(f"\n=== pass: {net} plane pour (F.Cu + B.Cu) ===")
     proc = subprocess.run(cmd, cwd=tool, capture_output=True, text=True)
     if proc.returncode != 0:
@@ -226,9 +243,17 @@ def main():
     if stragglers:
         run_pass(tool, f"retry stragglers @ {USB_TRACK_WIDTH}mm", out, out, stragglers,
                  USB_TRACK_WIDTH, USB_CLEARANCE, USB_GRID_STEP)
-    # GND: pour as a copper plane on both layers (stitched to its pads)
+    # GND: pour as a copper plane on both layers (stitched to its pads), then
+    # fill the zones and stitch any unconnected GND island down to the pour
+    # (pcbnew via KiCad's python — kicad-cli can't fill zones).
     if gnd and not args.no_gnd_pour:
         run_planes(tool, out, out, "GND")
+        print("\n=== pass: GND fill + island stitch ===")
+        proc = subprocess.run([kicad_python(), str(REPO / "scripts" / "gnd_finish.py"), str(out)],
+                              capture_output=True, text=True)
+        print("  " + (proc.stdout.strip().splitlines() or ["(no output)"])[-1])
+        if proc.returncode not in (0, 2):
+            sys.stderr.write(proc.stdout[-1500:] + proc.stderr[-500:])
 
     # The routed board has a different basename, so copy the project + custom-rule
     # files next to it — DRC and KiCad read net classes (incl. the USB 0.15mm
