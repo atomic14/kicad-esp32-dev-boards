@@ -8,10 +8,16 @@ Uses kicad-cli (path from library.json) for the 3D renders and ImageMagick
 (`magick`) for the montage. The pin-header STEP models live next to KiCad's
 bundled footprints, so KICAD10_3DMODEL_DIR is pointed there for the render.
 
+Renders the routed board (<M>_routed.kicad_pcb) when present, else the bare
+board. Note: the GND copper pour is unfilled in headless renders (it fills when
+opened in KiCad), so the montage shows the tracks/vias but not the GND fill.
+
 Usage:
-  render_boards.py            # render all generated boards -> two montages
+  render_boards.py             # routed boards where available -> two montages
+  render_boards.py --unrouted  # force the bare boards
 """
 from __future__ import annotations
+import argparse
 import json
 import os
 import shutil
@@ -38,11 +44,14 @@ def find_font():
     return next((f for f in FONT_CANDIDATES if Path(f).exists()), None)
 
 
-def boards():
-    """(module_name, pcb_path) for every module with a generated PCB."""
+def boards(unrouted=False):
+    """(module_name, pcb_path) for every module with a generated PCB. Prefers
+    the routed board (<M>_routed.kicad_pcb) when present so the montage shows the
+    routed result; pass unrouted=True to force the bare board."""
     out = []
     for d in sorted((REPO / "modules").glob("*/")):
-        pcb = d / f"{d.name}.kicad_pcb"
+        routed = d / f"{d.name}_routed.kicad_pcb"
+        pcb = d / f"{d.name}.kicad_pcb" if unrouted or not routed.exists() else routed
         if pcb.exists():
             out.append((d.name, pcb))
     return out
@@ -72,6 +81,11 @@ def montage(images, labels, out, font):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--unrouted", action="store_true",
+                    help="render the bare boards even if routed versions exist")
+    args = ap.parse_args()
+
     lib_path = REPO / "library.json"
     if not lib_path.exists():
         print("ERROR: library.json missing — run resolve_library.py first.", file=sys.stderr)
@@ -84,10 +98,12 @@ def main():
     # bundled 3D models sit beside the bundled footprints: <SharedSupport>/3dmodels
     model_dir = Path(lib["kicad_symbols_dir"]).parent / "3dmodels"
 
-    bds = boards()
+    bds = boards(unrouted=args.unrouted)
     if not bds:
         print("No generated boards found — run build_all.py first.", file=sys.stderr)
         return 1
+    routed = sum(1 for _, p in bds if p.name.endswith("_routed.kicad_pcb"))
+    print(f"Rendering {len(bds)} boards ({routed} routed, {len(bds) - routed} unrouted)")
 
     for side in ("top", "bottom"):
         imgs, labels = [], []
