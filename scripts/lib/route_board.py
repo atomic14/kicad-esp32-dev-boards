@@ -254,13 +254,25 @@ def main():
         # fill the zones and stitch any unconnected GND island down to the pour
         # (pcbnew via KiCad's python — kicad-cli can't fill zones).
         if gnd and not args.no_gnd_pour:
+            def finish_gnd():
+                print("\n=== pass: GND fill + island stitch ===")
+                proc = subprocess.run([kicad_python(), str(REPO / "scripts" / "lib" / "gnd_finish.py"), str(out)],
+                                      capture_output=True, text=True)
+                print("  " + (proc.stdout.strip().splitlines() or ["(no output)"])[-1])
+                if proc.returncode not in (0, 2):
+                    sys.stderr.write(proc.stdout[-1500:] + proc.stderr[-500:])
+
             run_planes(tool, out, out, "GND")
-            print("\n=== pass: GND fill + island stitch ===")
-            proc = subprocess.run([kicad_python(), str(REPO / "scripts" / "lib" / "gnd_finish.py"), str(out)],
-                                  capture_output=True, text=True)
-            print("  " + (proc.stdout.strip().splitlines() or ["(no output)"])[-1])
-            if proc.returncode not in (0, 2):
-                sys.stderr.write(proc.stdout[-1500:] + proc.stderr[-500:])
+            finish_gnd()
+            # Final GND pass: if any GND pad is STILL unconnected after the pour +
+            # island stitch, route it as a track to the nearest GND copper, then
+            # re-fill so the track is absorbed into the pour. Other nets stay
+            # frozen (no rip-up — that was found to create shorts). A no-op when
+            # GND is already fully connected, which it normally is.
+            if "GND" in unrouted_nets(connectivity(tool, out)):
+                run_pass(tool, "GND mop-up (tracks)", out, out, ["GND"],
+                         TRACK_WIDTH, CLEARANCE, None)
+                finish_gnd()
 
         print("\n=== connectivity ===")
         report = connectivity(tool, out)
