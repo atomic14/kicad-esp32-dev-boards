@@ -4,6 +4,9 @@ module: ESP32-C3-WROOM-02
 symbol: PCM_Espressif:ESP32-C3-WROOM-02
 do_not_break_out: []   # no externally-exposed flash/PSRAM/NC pins on this module
 overrides: {}
+strapping: [2, 8, 9]      # GPIOs sampled at reset (atomic14/datasheet); unsafe for the on-board LED
+input_only: []     # GPIOs with no output driver
+builtin_led: GPIO10   # on-board LED -> safe GPIO pad nearest the LED on the PCB
 notes: >
   Source: https://www.atomic14.com/esp32/modules/esp32-c3-wroom-02/ .
   Flash is internal (quad SPI) and PSRAM is None on this module, so there are

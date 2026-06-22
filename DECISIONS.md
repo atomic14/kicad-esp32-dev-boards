@@ -57,7 +57,7 @@ KiCad, schematic support immature); `pcbnew` Python (PCB only).
 
 ## Validation philosophy (user decision: "validate via screenshots")
 
-Two gates, both run by `scripts/validate.py`:
+Two gates, both run by `scripts/lib/validate.py`:
 
 1. **ERC delta vs the baseline.** The skeleton already has ~58 ERC violations by
    design (unconnected labels, undriven power, an `easyeda2kicad` lib not in the
@@ -114,7 +114,7 @@ Two break-out headers, laid out as a dev board (one each side of the module).
 Allocation is driven by the module's **physical** layout, NOT the schematic
 symbol's left/right sides (those are a drawing convention — almost every symbol
 is right-heavy). Physical edges come from the **footprint** pad geometry
-(`scripts/footprint_edges.py`); pad numbers match symbol pin numbers.
+(`scripts/lib/footprint_edges.py`); pad numbers match symbol pin numbers.
 
 Finding from surveying all 12 modules: form factor does **not** track the
 WROOM/MINI naming, and **10 of 12 are 3-edge** (usable pins on left + bottom +
@@ -157,10 +157,24 @@ module: ESP32-C3-MINI-1
 symbol: PCM_Espressif:ESP32-C3-MINI-1
 do_not_break_out: []        # pin numbers or names — flash/PSRAM/reserved
 overrides: {}               # pin (number|name) -> net label, to force a net
+strapping: [2, 8, 9]        # GPIO numbers sampled at reset (atomic14/datasheet)
+input_only: []              # GPIO numbers with no output driver
+builtin_led: GPIO7          # on-board LED pin — safe GPIO pad nearest the LED
 notes: >                    # block scalar — capture special-role pins here
   Source: <atomic14 module URL>. Strapping/JTAG/UART/USB pins are still broken
   out per dev-board policy and documented here, not excluded.
 ```
+
+`strapping`/`input_only` are still broken out like any other pin; they exist so
+the generator can route the **on-board LED** (`builtin_led`) to a pin that is
+safe to drive — I/O-capable and not sampled at reset. `build_board.py`
+`pick_builtin_led()` proposes the safe GPIO whose pad lands **physically closest
+to the LED** on the laid-out PCB (shortest trace), and the build **hard-errors**
+if `builtin_led` is a strapping /
+input-only / non-broken-out pin. Mechanism: keep the pin's `GPIOxx` label and
+add a second `BUILTIN_LED` global-label alias on it (the net carries both names;
+KiCad canonicalises to `BUILTIN_LED`, matching the skeleton LED's PCB net). This
+adds one expected `multiple_net_names` ERC warning.
 
 ### Two findings from the end-to-end run (to handle in the generator)
 
@@ -178,7 +192,10 @@ Each pin in `pinout.json` has: number, name (alt-functions baked in, e.g.
 `GPIO19/USB_D+`), electrical type, derived GPIO number, and position/side.
 Notably the **USB D+/D- mapping is in the pin names** — not something we must
 hand-curate. Still curated (not in the symbol): strapping pins, input-only pins,
-and internal flash/PSRAM pins to leave unconnected.
+and internal flash/PSRAM pins to leave unconnected. Strapping / input-only pins
+are captured as the structured `strapping` / `input_only` lists in `board.yaml`
+(consumed by the `builtin_led` picker + build-time safety gate), no longer only
+as free-text in `notes`.
 
 ## Standard net labels (from the baseline skeleton)
 
@@ -193,9 +210,9 @@ uv sync                                   # restore env (kicad-skip, sexpdata, p
 uv run python scripts/resolve_library.py  # -> library.json (set ESPRESSIF_3RDPARTY/KICAD_CLI if auto-detect fails)
 uv run python scripts/build_all.py        # extract + build + validate every curated module
 # single module:
-uv run python scripts/extract_pinout.py "ESP32-C3-MINI-1"
-uv run python scripts/build_board.py "ESP32-C3-MINI-1"
-uv run python scripts/validate.py modules/ESP32-C3-MINI-1/ESP32-C3-MINI-1.kicad_sch
+uv run python scripts/lib/extract_pinout.py "ESP32-C3-MINI-1"
+uv run python scripts/lib/build_board.py "ESP32-C3-MINI-1"
+uv run python scripts/lib/validate.py modules/ESP32-C3-MINI-1/ESP32-C3-MINI-1.kicad_sch
 ```
 
 ## Open items

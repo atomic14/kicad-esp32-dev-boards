@@ -48,20 +48,25 @@ def main(argv):
         return 1
 
     rows = []
-    for m in mods:
-        cmd = PY + [str(REPO / "scripts" / "route_board.py"), m]
+    total = len(mods)
+    for i, m in enumerate(mods, 1):
+        print(f"[{i:2}/{total}] {m:22} routing…", end="", flush=True)
+        cmd = PY + [str(REPO / "scripts" / "lib" / "route_board.py"), m]
         if args.diff:
             cmd.append("--diff")
         r = subprocess.run(cmd, capture_output=True, text=True)
         connected = "ALL NETS FULLY CONNECTED" in r.stdout
         if r.returncode != 0 and not connected:
+            print(" ROUTE-FAIL", flush=True)
             rows.append((m, "ROUTE-FAIL", "-"))
             sys.stderr.write(f"[{m}] route_board failed:\n{r.stdout[-1500:]}{r.stderr[-500:]}\n")
             continue
-        # DRC the routed board, count real (non zone-fill) errors
-        routed = REPO / "modules" / m / f"{m}_routed.kicad_pcb"
+        # DRC the routed board (routing wrote it back in place), count real
+        # (non zone-fill) errors
+        print(" DRC…", end="", flush=True)
+        board = REPO / "modules" / m / f"{m}.kicad_pcb"
         rpt = tempfile.mktemp(suffix=".rpt")
-        subprocess.run([cli, "pcb", "drc", "--severity-error", str(routed), "-o", rpt],
+        subprocess.run([cli, "pcb", "drc", "--severity-error", str(board), "-o", rpt],
                        capture_output=True)
         try:
             lines = Path(rpt).read_text().splitlines()
@@ -70,14 +75,16 @@ def main(argv):
         real = sum(1 for l in lines if l.startswith("[") and "unconnected_items" not in l)
         Path(rpt).unlink(missing_ok=True)
         rows.append((m, "connected" if connected else "UNROUTED", real))
-        print(f"  {m:22} {'connected' if connected else 'UNROUTED':10} real-DRC={real}")
+        print(f" {'connected' if connected else 'UNROUTED'} (real-DRC={real})", flush=True)
 
     print(f"\n{'MODULE':22} {'CONNECTIVITY':12} REAL-DRC (excl. GND zone-fill)")
     for m, conn, real in rows:
-        print(f"{m:22} {conn:12} {real}")
-    ok = sum(1 for _, c, _ in rows if c == "connected")
-    print(f"\n{ok}/{len(rows)} boards fully connected. "
-          "(real-DRC = accepted CC-vs-NPTH grazes; GND zone fills in KiCad.)")
+        bad = conn != "connected" or (isinstance(real, int) and real > 0)
+        print(f"{m:22} {conn:12} {real}{'   <-- FAIL' if bad else ''}")
+    ok = sum(1 for _, c, r in rows if c == "connected" and isinstance(r, int) and r == 0)
+    print(f"\n{ok}/{len(rows)} boards fully connected and DRC-clean. "
+          "(The only excluded item is the GND zone-fill 'unconnected', which "
+          "resolves when KiCad refills the zone on open.)")
     return 0 if ok == len(rows) else 1
 
 

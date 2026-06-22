@@ -39,7 +39,7 @@ from pathlib import Path
 import sexpdata
 from sexpdata import Symbol
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parents[2]
 
 # --- placement constants (mm) ----------------------------------------------
 EDGE_CLEAR = 0.5        # board-edge copper clearance below the USB THT pads
@@ -348,6 +348,67 @@ def build_pcb(pcb_path: Path, module: str, fp_path: Path, fp_libid: str,
     hdr_dir = Path(lib["kicad_symbols_dir"]).parent / "footprints" / "Connector_PinHeader_2.54mm.pretty"
 
     tree = sexpdata.loads(pcb_path.read_text())
+    L = compute_layout(tree, fp_path, headers)   # also sets h["n"]/["y"] on each header
+    center_x, mx, my = L["center_x"], L["mx"], L["my"]
+    board_left, board_top = L["board_left"], L["board_top"]
+    board_right, board_bottom = L["board_right"], L["board_bottom"]
+    hdr_offset = L["hdr_offset"]
+
+    def r(v):  # keep the file tidy
+        return round(v, 4)
+
+    new_nodes = []
+
+    # module
+    new_nodes.append(place_footprint(
+        fp_path, fp_libid, "U1", module, r(mx), r(my), 0,
+        module_pad_nets, module_uuid, sheetfile))
+
+    # headers + bottom-silk pin labels (net name beside each pin, growing
+    # inward toward the board centre — the outer side is flush with the edge)
+    for h in headers:
+        hx = center_x - hdr_offset if h["side"] == "left" else center_x + hdr_offset
+        n = h["n"]
+        hfp = hdr_dir / f"PinHeader_1x{n:02d}_P2.54mm_Vertical.kicad_mod"
+        libid = f"Connector_PinHeader_2.54mm:PinHeader_1x{n:02d}_P2.54mm_Vertical"
+        pad_nets = {str(i + 1): net for i, net in enumerate(h["nets"])}
+        new_nodes.append(place_footprint(
+            hfp, libid, h["ref"], f"Conn_01x{n:02d}", r(hx), r(h["y"]), 0,
+            pad_nets, h["uuid"], sheetfile, flip=True))
+        inward = 1 if h["side"] == "left" else -1
+        # B.SilkS text is mirrored, which flips horizontal justify — so to make
+        # the label grow *inward* (away from the pad), the justify is the
+        # opposite of the inward screen direction.
+        justify = "right" if h["side"] == "left" else "left"
+        for i, net in enumerate(h["nets"]):
+            lx = hx + inward * LABEL_OFFSET
+            ly = h["y"] + i * HDR_PITCH
+            new_nodes.append(pin_label(net, r(lx), r(ly), justify))
+
+    # board outline
+    new_nodes.append(gr_rect(r(board_left), r(board_top), r(board_right), r(board_bottom)))
+
+    # insert before the final ")" of the (kicad_pcb ...) node
+    text = pcb_path.read_text().rstrip()
+    assert text.endswith(")"), "unexpected PCB file ending"
+    blocks = "\n".join("\t" + sexpdata.dumps(n) for n in new_nodes)
+    pcb_path.write_text(text[:-1] + blocks + "\n)\n")
+
+    return {
+        "center_x": r(center_x), "board": (r(board_left), r(board_top),
+                                            r(board_right), r(board_bottom)),
+        "module_at": (r(mx), r(my)), "header_top": r(L["header_top"]),
+        "comp_top": r(L["comp_top"]), "tht_bottom": r(L["tht_bottom"]),
+    }
+
+
+def compute_layout(tree, fp_path: Path, headers: list) -> dict:
+    """Deterministic placement geometry for a board: where the module + headers
+    + outline go, given the skeleton PCB (`tree`, before the module is added),
+    the module footprint, and the headers (each {side, nets}). Mutates each
+    header dict with n/y/top. Pure geometry — no file writes — so the
+    builtin-LED picker can reuse it to find the module's placed pad positions.
+    build_pcb() calls this and then emits the footprints/outline."""
     boxes = existing_footprints_bbox(tree)
     if "J1" not in boxes:
         raise RuntimeError("USB socket J1 not found in PCB — cannot centre the board")
@@ -403,49 +464,28 @@ def build_pcb(pcb_path: Path, module: str, fp_path: Path, fp_libid: str,
     board_half = hdr_offset + HDR_CRT_HALF + BOARD_MARGIN
     board_left, board_right = center_x - board_half, center_x + board_half
 
-    def r(v):  # keep the file tidy
-        return round(v, 4)
-
-    new_nodes = []
-
-    # module
-    new_nodes.append(place_footprint(
-        fp_path, fp_libid, "U1", module, r(mx), r(my), 0,
-        module_pad_nets, module_uuid, sheetfile))
-
-    # headers + bottom-silk pin labels (net name beside each pin, growing
-    # inward toward the board centre — the outer side is flush with the edge)
-    for h in headers:
-        hx = center_x - hdr_offset if h["side"] == "left" else center_x + hdr_offset
-        n = h["n"]
-        hfp = hdr_dir / f"PinHeader_1x{n:02d}_P2.54mm_Vertical.kicad_mod"
-        libid = f"Connector_PinHeader_2.54mm:PinHeader_1x{n:02d}_P2.54mm_Vertical"
-        pad_nets = {str(i + 1): net for i, net in enumerate(h["nets"])}
-        new_nodes.append(place_footprint(
-            hfp, libid, h["ref"], f"Conn_01x{n:02d}", r(hx), r(h["y"]), 0,
-            pad_nets, h["uuid"], sheetfile, flip=True))
-        inward = 1 if h["side"] == "left" else -1
-        # B.SilkS text is mirrored, which flips horizontal justify — so to make
-        # the label grow *inward* (away from the pad), the justify is the
-        # opposite of the inward screen direction.
-        justify = "right" if h["side"] == "left" else "left"
-        for i, net in enumerate(h["nets"]):
-            lx = hx + inward * LABEL_OFFSET
-            ly = h["y"] + i * HDR_PITCH
-            new_nodes.append(pin_label(net, r(lx), r(ly), justify))
-
-    # board outline
-    new_nodes.append(gr_rect(r(board_left), r(board_top), r(board_right), r(board_bottom)))
-
-    # insert before the final ")" of the (kicad_pcb ...) node
-    text = pcb_path.read_text().rstrip()
-    assert text.endswith(")"), "unexpected PCB file ending"
-    blocks = "\n".join("\t" + sexpdata.dumps(n) for n in new_nodes)
-    pcb_path.write_text(text[:-1] + blocks + "\n)\n")
-
     return {
-        "center_x": r(center_x), "board": (r(board_left), r(board_top),
-                                            r(board_right), r(board_bottom)),
-        "module_at": (r(mx), r(my)), "header_top": r(header_top),
-        "comp_top": r(comp_top), "tht_bottom": r(tht_bottom),
+        "center_x": center_x, "mx": mx, "my": my, "hdr_offset": hdr_offset,
+        "board_left": board_left, "board_top": board_top,
+        "board_right": board_right, "board_bottom": board_bottom,
+        "header_top": header_top, "comp_top": comp_top, "tht_bottom": tht_bottom,
     }
+
+
+def net_pad_global(tree, net_name: str):
+    """Global (x, y) of the first pad carrying `net_name` in a PCB tree (pad
+    local coords transformed by its footprint's placement), or None. Used to
+    locate the on-board LED's pad so the builtin-LED picker can route it to the
+    nearest module pad."""
+    for fp in collect(tree, "footprint", []):
+        at = child(fp, "at")
+        ox, oy = num(at[1]), num(at[2])
+        fth = math.radians(num(at[3]) if len(at) > 3 else 0.0)
+        for p in collect(fp, "pad", []):
+            netc = child(p, "net")
+            if netc and str(netc[-1]) == net_name:
+                pat = child(p, "at")
+                px, py = num(pat[1]), num(pat[2])
+                return (ox + px * math.cos(fth) - py * math.sin(fth),
+                        oy + px * math.sin(fth) + py * math.cos(fth))
+    return None

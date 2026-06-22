@@ -6,10 +6,12 @@ it ensures pinout.json exists (extract_pinout), runs build_board, then validate,
 and prints a summary table. Run resolve_library.py once first.
 
 Usage:
-  build_all.py            # build + validate all curated modules
-  build_all.py --list     # just list the modules that will be built
+  build_all.py              # build + validate all curated modules
+  build_all.py --clean      # remove prior output first
+  build_all.py --list       # just list the modules that will be built
 """
 from __future__ import annotations
+import argparse
 import subprocess
 import sys
 from pathlib import Path
@@ -36,11 +38,18 @@ def run(script, *args):
 
 
 def main(argv):
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--clean", action="store_true",
+                    help="remove prior generated output first")
+    ap.add_argument("--list", action="store_true",
+                    help="just list the modules that will be built")
+    args = ap.parse_args(argv)
+
     if not (REPO / "library.json").exists():
         print("ERROR: library.json missing — run resolve_library.py first.", file=sys.stderr)
         return 1
     mods = modules()
-    if argv and argv[0] == "--list":
+    if args.list:
         for sym, _ in mods:
             print(sym)
         return 0
@@ -48,17 +57,26 @@ def main(argv):
         print("No modules with a board.yaml found.", file=sys.stderr)
         return 1
 
+    if args.clean:
+        c = run("clean.py")
+        sys.stdout.write(c.stdout)
+
+    total = len(mods)
     rows, failures = [], 0
-    for sym, safe in mods:
+    for i, (sym, safe) in enumerate(mods, 1):
+        print(f"[{i:2}/{total}] {sym:22} building…", end="", flush=True)
         if not (REPO / "modules" / safe / "pinout.json").exists():
-            run("extract_pinout.py", sym)
-        b = run("build_board.py", sym)
+            run("lib/extract_pinout.py", sym)
+        b = run("lib/build_board.py", sym)
         if b.returncode != 0:
+            print(" BUILD-FAIL", flush=True)
             rows.append((sym, "BUILD-FAIL")); failures += 1
             print(f"[{sym}] build_board failed:\n{b.stderr}", file=sys.stderr)
             continue
-        v = run("validate.py", f"modules/{safe}/{safe}.kicad_sch")
+        print(" validating…", end="", flush=True)
+        v = run("lib/validate.py", f"modules/{safe}/{safe}.kicad_sch")
         ok = v.returncode == 0
+        print(" PASS" if ok else " VALIDATE-FAIL", flush=True)
         rows.append((sym, "PASS" if ok else "VALIDATE-FAIL"))
         if not ok:
             failures += 1

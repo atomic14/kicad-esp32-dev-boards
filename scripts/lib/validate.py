@@ -21,7 +21,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parents[2]
 LIBRARY_JSON = REPO / "library.json"
 DEFAULT_BASELINE = REPO / "baseline" / "baseline.kicad_sch"
 

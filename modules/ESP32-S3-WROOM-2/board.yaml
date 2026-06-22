@@ -3,6 +3,9 @@ module: ESP32-S3-WROOM-2
 symbol: PCM_Espressif:ESP32-S3-WROOM-2
 do_not_break_out: []   # see notes — no exposed flash/PSRAM pins to exclude
 overrides: {}
+strapping: [0, 3, 45, 46]      # GPIOs sampled at reset (atomic14/datasheet); unsafe for the on-board LED
+input_only: []     # GPIOs with no output driver
+builtin_led: GPIO48   # on-board LED -> safe GPIO pad nearest the LED on the PCB
 notes: >
   Source: https://www.atomic14.com/esp32/modules/esp32-s3-wroom-2/
 

@@ -14,8 +14,11 @@ so most nets cross layers (a via per net). Routed in incremental passes:
                       clearance, 0.5/0.3 vias), free to use either layer.
   GND plane pour      GND poured on F.Cu + B.Cu, vias stitched to its pads.
 
-Writes modules/<M>/<M>_routed.kicad_pcb (plus the .kicad_pro/.kicad_dru sidecars
-so DRC sees the net classes + USB rule) and prints a connectivity report.
+Routes in place: writes the result back to modules/<M>/<M>.kicad_pcb (the
+project's existing .kicad_pro/.kicad_dru carry the net classes + USB rule DRC
+reads). Routing runs in a temp working file that's moved over the board only on
+success, so a failed pass leaves the original untouched. Expects a freshly built
+board — re-routing without an intervening build would route over existing tracks.
 
 Requires KiCadRoutingTools as a sibling dir (../KiCadRoutingTools), or --tool /
 $KICAD_ROUTING_TOOLS, with its Rust router built (python build_router.py) and
@@ -29,12 +32,11 @@ import argparse
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parents[2]
 
 # Board design rules (from baseline.kicad_pro): the routing defaults.
 TRACK_WIDTH = 0.2
@@ -209,7 +211,11 @@ def main():
     src = REPO / "modules" / safe / f"{safe}.kicad_pcb"
     if not src.exists():
         raise SystemExit(f"{src} not found — run build_board.py first.")
-    out = REPO / "modules" / safe / f"{safe}_routed.kicad_pcb"
+    # Route into a temp working file beside the board, then atomically move it
+    # over <M>.kicad_pcb only once every pass has succeeded. Keeps the original
+    # intact on failure, and (being a distinct file) lets the router read the
+    # bare board while it writes the routed one.
+    out = REPO / "modules" / safe / f"{safe}.routing.kicad_pcb"
 
     nets = board_nets(src)
     usb = [n for n in USB_NETS if n in nets]
@@ -218,55 +224,60 @@ def main():
     power = [n for n in POWER_NETS if n in nets]
     rest = sorted(nets - set(usb) - set(gnd) - set(power))
 
-    # Pass 0 (opt-in): route D+/D- as a differential pair. Off by default — see
-    # the --diff help: the run is too short to benefit and the coupled pair
-    # shorts in the tight USB-C escape; single-ended is cleaner here.
-    if args.diff and len(diff) == 2:
-        run_diff(tool, src, out, diff)
-        usb_in = out
-    else:
-        usb_in = src
-    # Pass 1: USB/CC fine neck — routes (or completes) D± + CC at the fine neck
-    run_pass(tool, "USB-C fine neck", usb_in, out, usb,
-             USB_TRACK_WIDTH, USB_CLEARANCE, USB_GRID_STEP)
-    # Pass 2: power rails first (wider, and before the GPIO fan-out fills the
-    # bottom) so they get clean paths and freely use the empty bottom layer
-    if power:
-        run_pass(tool, f"power rails @ {POWER_WIDTH}mm", out, out, power,
-                 POWER_WIDTH, CLEARANCE, None)
-    # Pass 3: every other signal at the board rule, incremental
-    run_pass(tool, "signals (board rule)", out, out, rest,
-             TRACK_WIDTH, CLEARANCE, None)
-    # Self-heal: retry any net the bulk pass couldn't finish, on its own so it
-    # can rip up specific blockers — at the 0.15mm neck (legal: min width 0.15).
-    stragglers = sorted(unrouted_nets(connectivity(tool, out)) - {"GND"})
-    if stragglers:
-        run_pass(tool, f"retry stragglers @ {USB_TRACK_WIDTH}mm", out, out, stragglers,
+    try:
+        # Pass 0 (opt-in): route D+/D- as a differential pair. Off by default — see
+        # the --diff help: the run is too short to benefit and the coupled pair
+        # shorts in the tight USB-C escape; single-ended is cleaner here.
+        if args.diff and len(diff) == 2:
+            run_diff(tool, src, out, diff)
+            usb_in = out
+        else:
+            usb_in = src
+        # Pass 1: USB/CC fine neck — routes (or completes) D± + CC at the fine neck
+        run_pass(tool, "USB-C fine neck", usb_in, out, usb,
                  USB_TRACK_WIDTH, USB_CLEARANCE, USB_GRID_STEP)
-    # GND: pour as a copper plane on both layers (stitched to its pads), then
-    # fill the zones and stitch any unconnected GND island down to the pour
-    # (pcbnew via KiCad's python — kicad-cli can't fill zones).
-    if gnd and not args.no_gnd_pour:
-        run_planes(tool, out, out, "GND")
-        print("\n=== pass: GND fill + island stitch ===")
-        proc = subprocess.run([kicad_python(), str(REPO / "scripts" / "gnd_finish.py"), str(out)],
-                              capture_output=True, text=True)
-        print("  " + (proc.stdout.strip().splitlines() or ["(no output)"])[-1])
-        if proc.returncode not in (0, 2):
-            sys.stderr.write(proc.stdout[-1500:] + proc.stderr[-500:])
+        # Pass 2: power rails first (wider, and before the GPIO fan-out fills the
+        # bottom) so they get clean paths and freely use the empty bottom layer
+        if power:
+            run_pass(tool, f"power rails @ {POWER_WIDTH}mm", out, out, power,
+                     POWER_WIDTH, CLEARANCE, None)
+        # Pass 3: every other signal at the board rule, incremental
+        run_pass(tool, "signals (board rule)", out, out, rest,
+                 TRACK_WIDTH, CLEARANCE, None)
+        # Self-heal: retry any net the bulk pass couldn't finish, on its own so it
+        # can rip up specific blockers — at the 0.15mm neck (legal: min width 0.15).
+        stragglers = sorted(unrouted_nets(connectivity(tool, out)) - {"GND"})
+        if stragglers:
+            run_pass(tool, f"retry stragglers @ {USB_TRACK_WIDTH}mm", out, out, stragglers,
+                     USB_TRACK_WIDTH, USB_CLEARANCE, USB_GRID_STEP)
+        # GND: pour as a copper plane on both layers (stitched to its pads), then
+        # fill the zones and stitch any unconnected GND island down to the pour
+        # (pcbnew via KiCad's python — kicad-cli can't fill zones).
+        if gnd and not args.no_gnd_pour:
+            run_planes(tool, out, out, "GND")
+            print("\n=== pass: GND fill + island stitch ===")
+            proc = subprocess.run([kicad_python(), str(REPO / "scripts" / "lib" / "gnd_finish.py"), str(out)],
+                                  capture_output=True, text=True)
+            print("  " + (proc.stdout.strip().splitlines() or ["(no output)"])[-1])
+            if proc.returncode not in (0, 2):
+                sys.stderr.write(proc.stdout[-1500:] + proc.stderr[-500:])
 
-    # The routed board has a different basename, so copy the project + custom-rule
-    # files next to it — DRC and KiCad read net classes (incl. the USB 0.15mm
-    # class) and the USB clearance rule from these sidecars.
-    for ext in ("kicad_pro", "kicad_dru"):
-        side = REPO / "modules" / safe / f"{safe}.{ext}"
-        if side.exists():
-            shutil.copyfile(side, out.with_suffix(f".{ext}"))
+        print("\n=== connectivity ===")
+        report = connectivity(tool, out)
+        print(report.split("Checking")[-1].strip()[:800] if "Checking" in report else report[-800:])
 
-    print(f"\nWrote {out}")
-    print("\n=== connectivity ===")
-    report = connectivity(tool, out)
-    print(report.split("Checking")[-1].strip()[:800] if "Checking" in report else report[-800:])
+        # Every pass succeeded — move the routed working file over the board.
+        # The project's existing .kicad_pro/.kicad_dru already sit beside it, so
+        # DRC/KiCad still see the net classes + USB rule.
+        os.replace(out, src)
+        print(f"\nWrote {src}")
+    finally:
+        # Drop the temp working file AND any companion project files KiCad spawns
+        # for it (<M>.routing.kicad_pro/.kicad_prl). On success the .kicad_pcb was
+        # already moved over the board; the companions would otherwise be left
+        # orphaned beside every routed board.
+        for f in src.parent.glob(f"{safe}.routing.*"):
+            f.unlink()
 
 
 if __name__ == "__main__":

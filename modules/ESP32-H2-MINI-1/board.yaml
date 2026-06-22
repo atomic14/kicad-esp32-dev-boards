@@ -4,6 +4,9 @@ module: ESP32-H2-MINI-1
 symbol: PCM_Espressif:ESP32-H2-MINI-1
 do_not_break_out: []   # no dedicated internal flash/PSRAM signal pins are exposed
 overrides: {}
+strapping: [8, 9, 25]      # GPIOs sampled at reset (atomic14/datasheet); unsafe for the on-board LED
+input_only: []     # GPIOs with no output driver
+builtin_led: GPIO22   # on-board LED -> safe GPIO pad nearest the LED on the PCB
 notes: >
   Source: https://www.atomic14.com/esp32/modules/esp32-h2-mini-1/ .
   do_not_break_out is empty: the ESP32-H2-MINI-1 has internal SPI flash and

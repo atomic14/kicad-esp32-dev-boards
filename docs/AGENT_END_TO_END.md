@@ -23,7 +23,7 @@ friction** in the documented process.
 
 1. **Regenerate machine state** (it was wiped for this clean-slate run):
    - `uv run python scripts/resolve_library.py`        → writes `library.json`
-   - `uv run python scripts/extract_pinout.py "ESP32-S2-MINI-1"` → writes
+   - `uv run python scripts/lib/extract_pinout.py "ESP32-S2-MINI-1"` → writes
      `modules/ESP32-S2-MINI-1/pinout.json`
 
 2. **Curate `modules/ESP32-S2-MINI-1/board.yaml`** using the module reference
@@ -38,13 +38,19 @@ friction** in the documented process.
      normal for a dev board) — capture them in `notes`, don't exclude them.
    - USB D+/D- pins are auto-routed by the generator; they aren't broken out
      regardless.
+   - Record the SoC's **strapping** and **input-only** GPIO numbers (from the
+     page / datasheet) in the structured `strapping:` / `input_only:` lists, then
+     set **`builtin_led:`** to the safe (I/O-capable, non-strapping) GPIO pad
+     physically nearest the on-board LED on the PCB (`build_board.py
+     pick_builtin_led()` computes it; the build hard-errors on an unsafe choice).
    Follow the `board.yaml` schema in DECISIONS.md (module, symbol,
-   do_not_break_out, overrides, notes). Record the data source in `notes`.
+   do_not_break_out, overrides, strapping, input_only, builtin_led, notes).
+   Record the data source in `notes`.
 
-3. **Generate**: `uv run python scripts/build_board.py "ESP32-S2-MINI-1"`
+3. **Generate**: `uv run python scripts/lib/build_board.py "ESP32-S2-MINI-1"`
 
 4. **Validate + screenshot** (iterate until good):
-   `uv run python scripts/validate.py modules/ESP32-S2-MINI-1/ESP32-S2-MINI-1.kicad_sch`
+   `uv run python scripts/lib/validate.py modules/ESP32-S2-MINI-1/ESP32-S2-MINI-1.kicad_sch`
    then **Read the printed PDF** and check the module, power/USB/boot wiring, and
    both headers visually.
    - Gate: **no new ERROR-severity violations** (script exits 0). New *warnings*

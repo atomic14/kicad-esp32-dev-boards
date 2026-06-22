@@ -542,7 +542,7 @@
 		(size 0.6 0.6)
 		(drill 0.6)
 		(layers "*.Cu" "*.Mask")
-		(clearance 0.2)
+		(clearance 0.3)
 		(uuid "053cec8c-f231-4a7d-ba0c-0897e3575ada")
 	)
 	(pad "" np_thru_hole circle
@@ -550,7 +550,7 @@
 		(size 0.6 0.6)
 		(drill 0.6)
 		(layers "*.Cu" "*.Mask")
-		(clearance 0.2)
+		(clearance 0.3)
 		(uuid "107e57db-0193-4749-bf56-78bea05a448a")
 	)
 	(pad "A1_B12" smd rect

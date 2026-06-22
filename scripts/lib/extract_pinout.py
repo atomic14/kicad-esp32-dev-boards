@@ -22,7 +22,7 @@ from pathlib import Path
 import sexpdata
 from sexpdata import Symbol
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parents[2]
 LIBRARY_JSON = REPO / "library.json"
 MODULES_DIR = REPO / "modules"
 

@@ -7,7 +7,7 @@ labels / power symbols to its pins (wiring via labels — no routing), and break
 out the usable GPIO across two headers using the perimeter-walk split.
 
 Construction is done with sexpdata (full control over node creation); validity
-is proven by scripts/validate.py (kicad-cli ERC + render).
+is proven by scripts/lib/validate.py (kicad-cli ERC + render).
 
 Usage:
   build_board.py "ESP32-C3-MINI-1" [--out PATH]
@@ -28,7 +28,7 @@ from sexpdata import Symbol
 import footprint_edges  # sibling script
 import place_pcb  # sibling script
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parents[2]
 LIBRARY = json.loads((REPO / "library.json").read_text())
 ROOT_UUID = "b23045b8-0ca8-49c8-a4de-e20269e6d669"  # baseline schematic root uuid
 PROJECT = "baseline"
@@ -82,6 +82,90 @@ def is_breakout(p, do_not: set) -> bool:
     if str(p["number"]) in do_not or primary_name(p["name"]) in do_not:
         return False
     return True
+
+
+def resolve_led_pin(spec, pins, do_not, unsafe):
+    """Resolve a board.yaml ``builtin_led`` value to its pin dict, or None if
+    unset. The spec is a GPIO number (``9`` / ``"GPIO9"``) or a pin's primary
+    name. Hard-errors if it names no pin, a pin that isn't broken out (NC /
+    power / excluded), or a pin that is unsafe to drive an LED — input-only or a
+    strapping pin (``unsafe`` = the GPIO numbers from board.yaml's
+    ``strapping`` + ``input_only``). An on-board LED must land on a usable,
+    I/O-capable, non-strapping signal pin."""
+    if spec in (None, ""):
+        return None
+    s = str(spec).strip()
+    cand = None
+    m = re.match(r"(?:GPIO|IO)?(\d+)$", s, re.I)
+    if m:
+        g = int(m.group(1))
+        cand = next((p for p in pins if p["gpio"] == g), None)
+    if cand is None:
+        cand = next((p for p in pins if primary_name(p["name"]).lower() == s.lower()), None)
+    if cand is None:
+        raise ValueError(f"builtin_led: no pin matches {spec!r}")
+    if not is_breakout(cand, do_not):
+        raise ValueError(
+            f"builtin_led: pin {cand['name']} (#{cand['number']}) is not a "
+            f"broken-out signal (NC / power / excluded) — pick a usable GPIO")
+    if cand["etype"] == "input" or cand["gpio"] in unsafe:
+        why = "input-only" if cand["etype"] == "input" else "a strapping pin"
+        raise ValueError(
+            f"builtin_led: GPIO{cand['gpio']} (pin {cand['name']}, #{cand['number']}) "
+            f"is {why} — unsafe to drive an LED; pick an I/O-capable, "
+            f"non-strapping pin (see this module's strapping/input_only)")
+    return cand
+
+
+def breakout_split(module, do_not):
+    """Perimeter-walk the module's physical pads (left → bottom → up the right)
+    and split the broken-out signals into the two headers, left half / right
+    half. Returns (left_pins, right_pins)."""
+    edges = footprint_edges.classify_edges(module)
+    ring = edges["left"] + edges["bottom"] + list(reversed(edges["right"]))
+    ring = [p for p in ring if is_breakout(p, do_not)]
+    seen, ordered = set(), []          # de-dup, keep order
+    for p in ring:
+        if p["number"] not in seen:
+            seen.add(p["number"]); ordered.append(p)
+    half = (len(ordered) + 1) // 2
+    return ordered[:half], ordered[half:]
+
+
+SKELETON_LED_NET = "BUILTIN_LED"  # the skeleton's on-board LED net (baseline PCB)
+
+
+def pick_builtin_led(module, pins, do_not, unsafe):
+    """Suggest the on-board LED pin during board.yaml curation: the SAFE module
+    pad physically CLOSEST to the skeleton's on-board LED on the laid-out PCB
+    (shortest trace). 'Safe' = a broken-out, I/O-capable, non-strapping GPIO.
+    Returns a pin dict, or None only if the module exposes no safe GPIO at all.
+    Geometry mirrors place_pcb: the module footprint is placed at (mx, my) and
+    the LED's pad sits at a fixed spot among the baseline components."""
+    fp_dir = Path(LIBRARY["footprint_lib"])
+    fp_path = footprint_edges.find_footprint(fp_dir, module)
+    # header sizes drive the module's vertical placement -> mirror the build
+    left_pins, right_pins = breakout_split(module, do_not)
+    headers = [{"side": "left", "nets": [None] * (len(left_pins) + 2)},
+               {"side": "right", "nets": [None] * (len(right_pins) + 2)}]
+    tree = sexpdata.loads((REPO / "baseline" / "baseline.kicad_pcb").read_text())
+    layout = place_pcb.compute_layout(tree, fp_path, headers)
+    led = place_pcb.net_pad_global(tree, SKELETON_LED_NET)
+
+    local = footprint_edges.pad_positions(fp_path)   # {pad: (x, y)} footprint-local
+    by_num = {p["number"]: p for p in pins}
+    best, best_d = None, None
+    for pad, (lx, ly) in local.items():
+        p = by_num.get(pad)
+        if (p is None or p.get("gpio") is None or not is_breakout(p, do_not)
+                or p["etype"] == "input" or p["gpio"] in unsafe):
+            continue
+        gx, gy = layout["mx"] + lx, layout["my"] + ly
+        # no LED pad found -> fall back to "rightmost, lowest" (max x, then y)
+        d = ((gx - led[0]) ** 2 + (gy - led[1]) ** 2) if led else (-gx, -gy)
+        if best_d is None or d < best_d:
+            best, best_d = p, d
+    return best
 
 
 def module_pad_net(p, overrides, do_not):
@@ -215,6 +299,16 @@ def no_connect(x, y):
     return parse(f'(no_connect (at {x} {y}) (uuid "{newid()}"))')
 
 
+def wire(x1, y1, x2, y2):
+    return parse(f'(wire (pts (xy {x1} {y1}) (xy {x2} {y2})) (stroke (width 0) (type default)) (uuid "{newid()}"))')
+
+
+# Unit vector pointing AWAY from the module body, per symbol side. Used to push
+# an extra net-alias label clear of the pin's primary label. (Schematic +y is
+# down, so "top" is -y and "bottom" is +y.)
+OUTWARD_VEC = {"left": (-1, 0), "right": (1, 0), "top": (0, -1), "bottom": (0, 1)}
+
+
 # electrical types that MUST be connected (else ERC pin_not_connected error)
 SIGNAL_ETYPES = {"bidirectional", "input", "output", "tri_state", "open_collector"}
 
@@ -249,13 +343,22 @@ def main():
     pins_by_num = {p["number"]: p for p in pinout["pins"]}
 
     # board.yaml (optional)
-    do_not, overrides = set(), {}
+    do_not, overrides, led_spec, unsafe = set(), {}, None, set()
     yml = mod_dir / "board.yaml"
     if yml.exists():
         import yaml
         cfg = yaml.safe_load(yml.read_text()) or {}
         do_not = {str(x) for x in (cfg.get("do_not_break_out") or [])}
         overrides = {str(k): v for k, v in (cfg.get("overrides") or {}).items()}
+        led_spec = cfg.get("builtin_led")
+        # GPIO numbers unsafe to drive an LED: strapping + input-only (curated
+        # per module from the atomic14 / datasheet pin data — see notes).
+        unsafe = {int(x) for x in (cfg.get("strapping") or [])} | \
+                 {int(x) for x in (cfg.get("input_only") or [])}
+
+    # The pin the on-board LED (skeleton's BUILTIN_LED net) attaches to, if any.
+    led_pin = resolve_led_pin(led_spec, pinout["pins"], do_not, unsafe)
+    led_pin_num = led_pin["number"] if led_pin else None
 
     # --- load baseline tree ---
     tree = sexpdata.loads((REPO / "baseline" / "baseline.kicad_sch").read_text())
@@ -309,18 +412,17 @@ def main():
             text = net or breakout_label(p)
             rot, just = LABEL_ORIENT[side]
             new_elements.append(global_label(text, ep[0], ep[1], rot, just))
+            # On-board LED pin: keep its GPIOxx label and add a BUILTIN_LED
+            # alias on a short outward stub so the skeleton's LED net joins this
+            # one (the net then carries both names — header stays readable).
+            if led_pin_num is not None and p["number"] == led_pin_num:
+                dx, dy = OUTWARD_VEC[side]
+                ax, ay = ep[0] + dx * 10.16, ep[1] + dy * 10.16
+                new_elements.append(wire(ep[0], ep[1], ax, ay))
+                new_elements.append(global_label("BUILTIN_LED", ax, ay, rot, just))
 
     # --- perimeter-walk split of break-out pins ---
-    edges = footprint_edges.classify_edges(module)
-    ring = edges["left"] + edges["bottom"] + list(reversed(edges["right"]))
-    ring = [p for p in ring if is_breakout(p, do_not)]
-    # de-dup (a pin can't be on two edges, but guard anyway), keep order
-    seen, ordered = set(), []
-    for p in ring:
-        if p["number"] not in seen:
-            seen.add(p["number"]); ordered.append(p)
-    half = (len(ordered) + 1) // 2
-    left_pins, right_pins = ordered[:half], ordered[half:]
+    left_pins, right_pins = breakout_split(module, do_not)
 
     # --- build the two headers ---
     def label_net(p):
@@ -374,6 +476,14 @@ def main():
     # reversed to match its flipped schematic header.
     rows_left = ["+3V3"] + [label_net(p) for p in left_pins] + ["GND"]
     rows_right = list(reversed(["+5V"] + [label_net(p) for p in right_pins] + ["GND"]))
+    # On the PCB, the LED pin's copper net must match the skeleton's BUILTIN_LED
+    # pad (module pad + its header pad + the LED resistor = one net). The
+    # schematic header label stays GPIOxx; the net just canonicalises to
+    # BUILTIN_LED via the alias added at the module pin above.
+    if led_pin_num is not None:
+        chosen_lbl = breakout_label(led_pin)
+        rows_left = ["BUILTIN_LED" if r == chosen_lbl else r for r in rows_left]
+        rows_right = ["BUILTIN_LED" if r == chosen_lbl else r for r in rows_right]
     j2_uuid = child(left_hdr[0], "uuid")[1]
     j3_uuid = child(right_hdr[0], "uuid")[1]
 
@@ -405,6 +515,8 @@ def main():
         for p in pinout["pins"]
         if (n := module_pad_net(p, overrides, do_not))
     }
+    if led_pin_num is not None:
+        module_pad_nets[str(led_pin_num)] = "BUILTIN_LED"
     headers = [
         {"ref": "J2", "side": "left", "nets": rows_left, "uuid": j2_uuid},
         {"ref": "J3", "side": "right", "nets": rows_right, "uuid": j3_uuid},

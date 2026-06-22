@@ -4,6 +4,9 @@ module: ESP32-S3-MINI-1
 symbol: PCM_Espressif:ESP32-S3-MINI-1
 do_not_break_out: []   # empty — see notes (quad flash/PSRAM, no exposed flash pins)
 overrides: {}
+strapping: [0, 3, 45, 46]      # GPIOs sampled at reset (atomic14/datasheet); unsafe for the on-board LED
+input_only: []     # GPIOs with no output driver
+builtin_led: GPIO48   # on-board LED -> safe GPIO pad nearest the LED on the PCB
 notes: >
   Source: https://www.atomic14.com/esp32/modules/esp32-s3-mini-1/ (and the
   Espressif ESP32-S3-MINI-1 datasheet referenced in pinout.json).

@@ -2260,7 +2260,7 @@
 			)
 		)
 	)
-	(global_label "GPIO21"
+	(global_label "BUILTIN_LED"
 		(shape input)
 		(at 44.45 85.725 90)
 		(fields_autoplaced yes)
@@ -2272,7 +2272,7 @@
 		)
 		(uuid "e8b0b574-1f6f-4fed-880b-4763c75ea25d")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 44.45 75.8455 90)
+			(at 44.45 71.1888 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)

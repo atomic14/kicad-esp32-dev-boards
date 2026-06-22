@@ -4,6 +4,9 @@ module: ESP32-S2-MINI-1
 symbol: PCM_Espressif:ESP32-S2-MINI-1
 do_not_break_out: []   # empty — see notes
 overrides: {}
+strapping: [0, 45, 46]      # GPIOs sampled at reset (atomic14/datasheet); unsafe for the on-board LED
+input_only: [46]     # GPIOs with no output driver
+builtin_led: GPIO34   # on-board LED -> safe GPIO pad nearest the LED on the PCB
 notes: >
   Source: https://www.atomic14.com/esp32/modules/esp32-s2-mini-1/ (and the
   Espressif datasheet referenced in pinout.json).
