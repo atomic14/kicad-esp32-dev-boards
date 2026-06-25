@@ -139,7 +139,6 @@ def finish_gnd(out):
 
 def run_pass(tool: Path, label: str, inp: Path, out: Path, nets: list[str],
              track: float, clearance: float, grid_step: float | None,
-             via_cost: int | None = None,
              power_nets: list[str] | None = None,
              power_widths: list[float] | None = None,
              ordering: str = "mps", direction: str | None = None,
@@ -165,8 +164,6 @@ def run_pass(tool: Path, label: str, inp: Path, out: Path, nets: list[str],
     if power_nets:
         cmd += ["--power-nets", *power_nets,
                 "--power-nets-widths", *[str(w) for w in power_widths]]
-    if via_cost is not None:
-        cmd += ["--via-cost", str(via_cost)]
     if grid_step:
         cmd += ["--grid-step", str(grid_step)]
     print(f"\n=== pass: {label} ({len(nets)} nets, {track}mm/{clearance}mm) ===")
