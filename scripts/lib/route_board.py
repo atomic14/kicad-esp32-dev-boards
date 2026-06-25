@@ -2,31 +2,38 @@
 """Auto-route a generated board with KiCadRoutingTools (external sibling repo).
 
 2-layer boards: module / USB-C / passives on F.Cu, break-out headers on B.Cu,
-so most nets cross layers (a via per net). The WHOLE board routes in a single
-route.py pass:
+so most nets cross layers (a via per net). Both layers carry signal EQUALLY
+(--layer-costs 1.0/1.0); penalising B.Cu choked routing on a 2-layer board.
 
-  - every net at 0.15mm track / 0.15mm clearance (the Default net class) — fine
-    enough to escape the 0.5mm-pitch USB-C pads, so no separate fine-neck pass.
-  - +3V3 / +5V / GND widened to 0.4mm via --power-nets-widths. GND is just a
-    wide net (tracks), NOT a copper pour.
-  - --diff (opt-in) routes D+/D- as a coupled pair first; otherwise single-ended.
-  - --max-ripup lets a blocked net rip up & reroute others. Doing this in ONE
-    invocation is safe: the router's rip-up + orphan-copper cleanup cover every
-    net. (Rip-up ACROSS separate per-pass invocations left shorting fragments —
-    see git history — which is why the staged USB/power/signal passes are gone.)
+The pipeline (per board), each stage writing the working file in place:
+  - GND plane pour on B.Cu (route_planes) then fill (fill_zones), so route.py
+    sees the poured copper. GND is the POUR — it's excluded from the route pass.
+  - keepout rings around the NPTH mounting holes (hole_keepouts) so signal
+    tracks/vias hold the required clearance from them.
+  - ONE whole-board route.py pass: every signal at 0.15mm track / 0.15mm
+    clearance (fine enough to escape the 0.5mm-pitch USB-C pads), +3V3/+5V
+    widened. --max-ripup lets a blocked net rip up & reroute others within the
+    pass (rip-up ACROSS separate invocations left shorting fragments — see git
+    history). If the pass strands nets, ONE recovery pass retries them first
+    (original ordering) from the same clean input, kept only if it improves.
+  - via repair (re-insert dropped layer-transition vias) + GND re-fill / island
+    stitch (gnd_finish).
+
+D+/D- route as a coupled differential pair by default; a module's board.yaml
+`diff: false` (or --no-diff) routes them single-ended, which dense boards prefer.
 
 Routes in place: writes the result back to modules/<M>/<M>.kicad_pcb (the
 project's existing .kicad_pro/.kicad_dru carry the net classes + custom DRC
-rules). Routing runs in a temp working file that's moved over the board only on
-success, so a failure leaves the original untouched. Expects a freshly built
-board — re-routing without an intervening build would route over existing tracks.
+rules). Routing runs in temp working files moved over the board only on success,
+so a failure leaves the original untouched. Expects a freshly built board —
+re-routing without an intervening build would route over existing tracks.
 
 Requires KiCadRoutingTools as a sibling dir (../KiCadRoutingTools), or --tool /
 $KICAD_ROUTING_TOOLS, with its Rust router built (python build_router.py) and
 numpy/scipy/shapely available to `python3`.
 
 Usage:
-  route_board.py "ESP32-C3-MINI-1" [--tool DIR] [--diff]
+  route_board.py "ESP32-C3-MINI-1" [--tool DIR] [--no-diff]
 """
 from __future__ import annotations
 import argparse
@@ -51,15 +58,20 @@ VIA_DRILL = 0.3
 BOARD_EDGE_CLEARANCE = 0.5  # = baseline min_copper_edge_clearance
 HOLE_TO_HOLE = 0.27         # = baseline min_hole_to_hole
 GRID_STEP = 0.05            # fine grid board-wide (needed for the USB-C escape)
+MAX_RIPUP = 10              # blockers a net may rip up to fit. Raising this
+                            # globally is NOT a win: a higher limit reshuffles the
+                            # whole route and strands DIFFERENT nets (50 regressed
+                            # S2-MINI, 8/12 vs 9/12, ~3x slower). The recovery pass
+                            # instead retries unrouted-first so they grab channels
+                            # before the rest fill them — kept only if it improves.
 LAYERS = ["F.Cu", "B.Cu"]
-# Penalise B.Cu 3x (the router default): it assumes a bottom ground plane, which
-# is what we pour, so signals prefer F.Cu and B.Cu is kept clear for the GND
-# pour and the break-out headers.
-LAYER_COSTS = ["1.0", "3.0"]
+# Use both layers equally - helps with routing on a 2 layer board
+LAYER_COSTS = ["1.0", "1.0"]
 DIFF_PAIR_GAP = 0.15  # P-to-N gap for the USB D+/D- pair
-POWER_WIDTH = 0.2     # +3V3/+5V/GND routed as wide tracks (low impedance) via
-                      # --power-nets-widths in the single routing pass.
-POWER_NETS = ["+3V3", "+5V", "GND"]   # widened to 0.4mm in the routing pass
+POWER_WIDTH = 0.2     # +3V3/+5V routed as wide tracks (low impedance) via
+                      # --power-nets-widths in the routing pass.
+POWER_NETS = ["+3V3", "+5V", "GND"]   # widened to POWER_WIDTH where routed; GND is
+                                      # the pour, so it's filtered out of the route nets
 GND_VIA_PAD_CLEARANCE = 0.25  # GND stitching vias sit BESIDE pads (not in them),
                              # this far from the pad edge (via-in-pad discouraged)
 KEEPOUT_LAYER = "User.2"  # route.py reads keepout polygons from this user layer;
@@ -131,15 +143,16 @@ def run_pass(tool: Path, label: str, inp: Path, out: Path, nets: list[str],
              power_nets: list[str] | None = None,
              power_widths: list[float] | None = None,
              ordering: str = "mps", direction: str | None = None,
-             keepout_layer: str | None = None) -> dict:
+             keepout_layer: str | None = None, max_ripup: int = MAX_RIPUP) -> dict:
     """Run one route.py pass over `nets`; return its JSON summary. `power_nets`
     (with matching `power_widths`) route at their own wider width in the same
     pass — used for +3V3/+5V/GND. `ordering`/`direction` pick the net-ordering
-    and per-net sweep strategy (varied across retry attempts). `keepout_layer`
-    (when set) tells route.py to honour the keepout polygons on that user layer."""
+    and per-net sweep strategy. `max_ripup` bounds how many blockers a net may
+    rip up to fit (raised in the recovery pass). `keepout_layer` (when set) tells
+    route.py to honour the keepout polygons on that user layer."""
     cmd = ["python3", "route.py", str(inp), str(out), *nets,
            "--layers", *LAYERS, "--layer-costs", *LAYER_COSTS,
-           "--ordering", ordering, "--max-ripup", "10",
+           "--ordering", ordering, "--max-ripup", str(max_ripup),
            "--track-width", str(track), "--clearance", str(clearance),
            "--via-size", str(VIA_SIZE), "--via-drill", str(VIA_DRILL),
            "--board-edge-clearance", str(BOARD_EDGE_CLEARANCE),
@@ -326,6 +339,12 @@ def route_attempt(tool: Path, src: Path, out: Path, do_diff: bool,
     # them. Re-routing from `prep` (not the mps result) avoids routing over
     # committed tracks. Kept only if it strictly beats mps (so boards mps did
     # better on are untouched).
+    # Recovery: if mps stranded nets, retry ONCE from the SAME clean input
+    # (`prep`, not the mps result — never route over committed tracks) with the
+    # stranded nets FIRST under `original` (list-order) ordering, so they grab
+    # channels before the rest fill them. Kept only if it strictly beats mps, so
+    # boards mps did better on are untouched. (Tried rip-up escalation here too —
+    # it regressed S2-MINI vs this reorder, so reorder it is.)
     failed = [n for n in route_nets if n in failed_nets(summary)]
     if failed:
         recov_nets = failed + [n for n in route_nets if n not in failed]
