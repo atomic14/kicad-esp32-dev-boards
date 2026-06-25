@@ -477,3 +477,22 @@ def compute_layout(tree, fp_path: Path, headers: list) -> dict:
         "board_right": board_right, "board_bottom": board_bottom,
         "header_top": header_top, "comp_top": comp_top, "tht_bottom": tht_bottom,
     }
+
+
+def net_pad_global(tree, net_name: str):
+    """Global (x, y) of the first pad carrying `net_name` in a PCB tree (pad
+    local coords transformed by its footprint's placement), or None. Used to
+    locate the on-board LED's pad so the builtin-LED picker can route it to the
+    nearest module pad."""
+    for fp in collect(tree, "footprint", []):
+        at = child(fp, "at")
+        ox, oy = num(at[1]), num(at[2])
+        fth = math.radians(num(at[3]) if len(at) > 3 else 0.0)
+        for p in collect(fp, "pad", []):
+            netc = child(p, "net")
+            if netc and str(netc[-1]) == net_name:
+                pat = child(p, "at")
+                px, py = num(pat[1]), num(pat[2])
+                return (ox + px * math.cos(fth) - py * math.sin(fth),
+                        oy + px * math.sin(fth) + py * math.cos(fth))
+    return None

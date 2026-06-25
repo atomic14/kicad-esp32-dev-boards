@@ -182,6 +182,39 @@ SKELETON_LED_NET = "BUILTIN_LED"  # the skeleton's on-board LED net (baseline PC
 SKELETON_BOOT_NET = "BOOT"        # the skeleton's BOOT-button net (baseline PCB)
 
 
+def pick_builtin_led(module, pins, do_not, unsafe):
+    """Suggest the on-board LED pin during board.yaml curation: the SAFE module
+    pad physically CLOSEST to the skeleton's on-board LED on the laid-out PCB
+    (shortest trace). 'Safe' = a broken-out, I/O-capable, non-strapping GPIO.
+    Returns a pin dict, or None only if the module exposes no safe GPIO at all.
+    Geometry mirrors place_pcb: the module footprint is placed at (mx, my) and
+    the LED's pad sits at a fixed spot among the baseline components."""
+    fp_dir = Path(LIBRARY["footprint_lib"])
+    fp_path = footprint_edges.find_footprint(fp_dir, module)
+    # header sizes drive the module's vertical placement -> mirror the build
+    left_pins, right_pins = breakout_split(module, do_not)
+    headers = [{"side": "left", "nets": [None] * (len(left_pins) + 2)},
+               {"side": "right", "nets": [None] * (len(right_pins) + 2)}]
+    tree = sexpdata.loads((baseline_dir(module) / "baseline.kicad_pcb").read_text())
+    layout = place_pcb.compute_layout(tree, fp_path, headers)
+    led = place_pcb.net_pad_global(tree, SKELETON_LED_NET)
+
+    local = footprint_edges.pad_positions(fp_path)   # {pad: (x, y)} footprint-local
+    by_num = {p["number"]: p for p in pins}
+    best, best_d = None, None
+    for pad, (lx, ly) in local.items():
+        p = by_num.get(pad)
+        if (p is None or p.get("gpio") is None or not is_breakout(p, do_not)
+                or p["etype"] == "input" or p["gpio"] in unsafe):
+            continue
+        gx, gy = layout["mx"] + lx, layout["my"] + ly
+        # no LED pad found -> fall back to "rightmost, lowest" (max x, then y)
+        d = ((gx - led[0]) ** 2 + (gy - led[1]) ** 2) if led else (-gx, -gy)
+        if best_d is None or d < best_d:
+            best, best_d = p, d
+    return best
+
+
 def module_pad_net(p, overrides, do_not):
     """Net for a module footprint pad — same mapping the schematic uses: power /
     USB / EN via net_for(), broken-out signals via their GPIO label, and None
