@@ -63,8 +63,10 @@ def main(argv):
             rows.append((m, "ROUTE-FAIL", "-"))
             sys.stderr.write(f"[{m}] route_board failed:\n{r.stdout[-1500:]}{r.stderr[-500:]}\n")
             continue
-        # DRC the routed board (routing wrote it back in place), count real
-        # (non zone-fill) errors
+        # DRC the routed board (routing wrote it back in place) and count every
+        # error — INCLUDING unconnected_items. The GND pour + fill (gnd_finish)
+        # should leave nothing unconnected, so any unconnected item is a real
+        # defect to surface, not a benign zone-fill artifact to hide.
         print(" DRC…", end="", flush=True)
         board = REPO / "modules" / m / f"{m}.kicad_pcb"
         rpt = tempfile.mktemp(suffix=".rpt")
@@ -74,19 +76,17 @@ def main(argv):
             lines = Path(rpt).read_text().splitlines()
         except OSError:
             lines = []
-        real = sum(1 for l in lines if l.startswith("[") and "unconnected_items" not in l)
+        real = sum(1 for l in lines if l.startswith("["))
         Path(rpt).unlink(missing_ok=True)
         rows.append((m, "connected" if connected else "UNROUTED", real))
         print(f" {'connected' if connected else 'UNROUTED'} (real-DRC={real})", flush=True)
 
-    print(f"\n{'MODULE':22} {'CONNECTIVITY':12} REAL-DRC (excl. GND zone-fill)")
+    print(f"\n{'MODULE':22} {'CONNECTIVITY':12} DRC ERRORS")
     for m, conn, real in rows:
         bad = conn != "connected" or (isinstance(real, int) and real > 0)
         print(f"{m:22} {conn:12} {real}{'   <-- FAIL' if bad else ''}")
     ok = sum(1 for _, c, r in rows if c == "connected" and isinstance(r, int) and r == 0)
-    print(f"\n{ok}/{len(rows)} boards fully connected and DRC-clean. "
-          "(The only excluded item is the GND zone-fill 'unconnected', which "
-          "resolves when KiCad refills the zone on open.)")
+    print(f"\n{ok}/{len(rows)} boards fully connected and DRC-clean.")
     return 0 if ok == len(rows) else 1
 
 
