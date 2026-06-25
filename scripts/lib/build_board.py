@@ -167,6 +167,17 @@ def breakout_split(module, do_not):
     return left_pins, right_pins
 
 
+def baseline_dir(module: str) -> Path:
+    """Pick the baseline variant whose button placement matches this module: if EN
+    lands on the module's RIGHT edge, use the EN-right baseline (its EN button is
+    on the right, BOOT on the left); otherwise the default EN-left baseline.
+    Aligning each button with the edge its pin sits on avoids long cross-board
+    button routes — the S2 family + S3-MINI (EN-right/BOOT-left) need the mirror."""
+    edges = footprint_edges.classify_edges(module)
+    en_right = any(net_for(p["name"]) == "EN" for p in edges["right"])
+    return REPO / ("baseline-right-en" if en_right else "baseline-left-en")
+
+
 SKELETON_LED_NET = "BUILTIN_LED"  # the skeleton's on-board LED net (baseline PCB)
 SKELETON_BOOT_NET = "BOOT"        # the skeleton's BOOT-button net (baseline PCB)
 
@@ -184,7 +195,7 @@ def pick_builtin_led(module, pins, do_not, unsafe):
     left_pins, right_pins = breakout_split(module, do_not)
     headers = [{"side": "left", "nets": [None] * (len(left_pins) + 2)},
                {"side": "right", "nets": [None] * (len(right_pins) + 2)}]
-    tree = sexpdata.loads((REPO / "baseline" / "baseline.kicad_pcb").read_text())
+    tree = sexpdata.loads((baseline_dir(module) / "baseline.kicad_pcb").read_text())
     layout = place_pcb.compute_layout(tree, fp_path, headers)
     led = place_pcb.net_pad_global(tree, SKELETON_LED_NET)
 
@@ -381,6 +392,7 @@ def main():
     module = args.module
     safe = module.replace("/", "_")
     mod_dir = REPO / "modules" / safe
+    base = baseline_dir(module)   # EN-left or EN-right baseline variant
 
     pinout = json.loads((mod_dir / "pinout.json").read_text())
     pins_by_num = {p["number"]: p for p in pinout["pins"]}
@@ -410,7 +422,7 @@ def main():
     boot_pin_num = boot_pin["number"] if boot_pin else None
 
     # --- load baseline tree ---
-    tree = sexpdata.loads((REPO / "baseline" / "baseline.kicad_sch").read_text())
+    tree = sexpdata.loads((base / "baseline.kicad_sch").read_text())
     libsyms = child(tree, "lib_symbols")
 
     # --- embed lib_symbols: module + connector ---
@@ -565,7 +577,6 @@ def main():
 
     # Emit a project file + blank board copied from the baseline project, with
     # the project basename rebranded so each module opens standalone in KiCad.
-    base = REPO / "baseline"
     for ext in ("kicad_pro", "kicad_pcb", "kicad_dru"):
         src = base / f"baseline.{ext}"
         if not src.exists():

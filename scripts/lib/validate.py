@@ -21,9 +21,12 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+import build_board  # sibling — for baseline_dir (EN-left/EN-right variant)
+
 REPO = Path(__file__).resolve().parents[2]
 LIBRARY_JSON = REPO / "library.json"
-DEFAULT_BASELINE = REPO / "baseline" / "baseline.kicad_sch"
+# The ERC-delta baseline is chosen per-module (EN-left/EN-right variant); see
+# main(). --baseline overrides it explicitly.
 
 
 def kicad_cli() -> str:
@@ -62,7 +65,7 @@ def export_pdf(cli: str, sch: Path, out: Path) -> bool:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("schematic", type=Path)
-    ap.add_argument("--baseline", type=Path, default=DEFAULT_BASELINE)
+    ap.add_argument("--baseline", type=Path, default=None)
     ap.add_argument("--out-dir", type=Path, default=None)
     args = ap.parse_args()
 
@@ -74,7 +77,10 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     target = run_erc(cli, args.schematic, out_dir / "erc.json")
-    base = run_erc(cli, args.baseline, out_dir / "erc_baseline.json")
+    # Compare against the same baseline variant this module was built from.
+    baseline = args.baseline or (build_board.baseline_dir(args.schematic.parent.name)
+                                 / "baseline.kicad_sch")
+    base = run_erc(cli, baseline, out_dir / "erc_baseline.json")
 
     pdf = out_dir / f"{args.schematic.stem}.pdf"
     pdf_ok = export_pdf(cli, args.schematic, pdf)

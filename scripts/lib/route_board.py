@@ -171,6 +171,16 @@ def run_pass(tool: Path, label: str, inp: Path, out: Path, nets: list[str],
     return summary
 
 
+def failed_nets(summary: dict) -> set[str]:
+    """Net names route.py couldn't fully route, from BOTH the single-ended list
+    and the multipoint failures — a >2-pad net (e.g. BOOT, 3 pads) lands in
+    `failed_multipoint` (as {net_name, ...}), never in `failed_single`."""
+    names = set(summary.get("failed_single") or [])
+    names |= {d.get("net_name") for d in (summary.get("failed_multipoint") or [])
+              if d.get("net_name")}
+    return names
+
+
 def run_diff(tool: Path, inp: Path, out: Path, nets: list[str]) -> dict:
     """Route `nets` as differential pair(s) (D+/D- auto-paired by suffix). The
     coupled run here is only ~2mm (connector sits next to the module), so the
@@ -302,11 +312,39 @@ def route_attempt(tool: Path, src: Path, out: Path, do_diff: bool,
     # rip-up-and-retry + orphan-copper cleanup safely cover ALL nets at once
     # (rip-up ACROSS separate per-pass invocations created shorts — see git
     # history). GND is excluded here and handled by the pour below.
-    run_pass(tool, "route all (0.15mm; +3V3/+5V/GND 0.2mm)", out, out, route_nets,
-             TRACK_WIDTH, CLEARANCE, GRID_STEP,
-             power_nets=wide, power_widths=[POWER_WIDTH] * len(wide),
-             ordering=ordering, direction=direction, keepout_layer=KEEPOUT_LAYER)
+    prep = out.parent / f"{out.stem}.prep.kicad_pcb"   # clean post-keepout input
+    shutil.copyfile(out, prep)
+    summary = run_pass(tool, "route all (0.15mm; +3V3/+5V 0.2mm)", prep, out, route_nets,
+                       TRACK_WIDTH, CLEARANCE, GRID_STEP,
+                       power_nets=wide, power_widths=[POWER_WIDTH] * len(wide),
+                       ordering=ordering, direction=direction, keepout_layer=KEEPOUT_LAYER)
     snap("routed")
+
+    # Recovery: if mps stranded nets (e.g. a long BOOT run on a dense MINI), retry
+    # ONCE from the SAME clean input with the stranded nets routed FIRST under
+    # `original` (list-order) ordering — they grab channels before the rest fill
+    # them. Re-routing from `prep` (not the mps result) avoids routing over
+    # committed tracks. Kept only if it strictly beats mps (so boards mps did
+    # better on are untouched).
+    failed = [n for n in route_nets if n in failed_nets(summary)]
+    if failed:
+        recov_nets = failed + [n for n in route_nets if n not in failed]
+        out2 = out.parent / f"{out.stem}.recov.kicad_pcb"
+        print(f"\n=== recovery: mps left {len(failed)} unrouted ({', '.join(failed)}); "
+              f"retry those first, original order ===")
+        s2 = run_pass(tool, "recovery (unrouted-first, original order)", prep, out2,
+                      recov_nets, TRACK_WIDTH, CLEARANCE, GRID_STEP,
+                      power_nets=wide, power_widths=[POWER_WIDTH] * len(wide),
+                      ordering="original", direction=direction, keepout_layer=KEEPOUT_LAYER)
+        n2 = len(failed_nets(s2))
+        if n2 < len(failed):
+            shutil.copyfile(out2, out)
+            snap("routed-recovery")
+            print(f"  recovery improved {len(failed)} -> {n2} unrouted; using it")
+        else:
+            print(f"  recovery no better ({n2} unrouted); keeping mps result")
+        out2.unlink(missing_ok=True)
+    prep.unlink(missing_ok=True)
 
     # Re-insert any layer-transition via route.py dropped (it can write a net
     # split across layers with no via — its issue #8). Surgical: fixes split
@@ -332,11 +370,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("module")
     ap.add_argument("--tool", default=None, help="KiCadRoutingTools dir")
+    ap.add_argument("--diff", dest="diff", action="store_true",
+                    help="force coupled differential-pair routing of D+/D- "
+                         "(overrides the module's board.yaml `diff:` setting).")
     ap.add_argument("--no-diff", dest="diff", action="store_false",
-                    help="route D+/D- single-ended instead of as a coupled "
-                         "differential pair (the diff-pair pre-step is the default "
-                         "— it routes the USB pair more reliably).")
-    ap.set_defaults(diff=True)
+                    help="force single-ended D+/D- (overrides board.yaml `diff:`). "
+                         "Dense boards route better single-ended.")
+    ap.set_defaults(diff=None)
     args = ap.parse_args()
 
     tool = find_tool(args.tool)
@@ -344,6 +384,15 @@ def main():
     src = REPO / "modules" / safe / f"{safe}.kicad_pcb"
     if not src.exists():
         raise SystemExit(f"{src} not found — run build_board.py first.")
+    # Per-module diff-pair default from board.yaml (`diff:`, default true); the
+    # CLI --diff/--no-diff override it. Dense modules (the MINIs) set diff:false —
+    # the coupled pre-step strands their other nets.
+    do_diff = args.diff
+    if do_diff is None:
+        import yaml
+        yml = REPO / "modules" / safe / "board.yaml"
+        cfg = (yaml.safe_load(yml.read_text()) or {}) if yml.exists() else {}
+        do_diff = bool(cfg.get("diff", True))
     # Route into a temp working file beside the board, then atomically move it
     # over <M>.kicad_pcb only once routing has succeeded. Keeps the original
     # intact on failure, and (being a distinct file) lets the router read the
@@ -381,7 +430,7 @@ def main():
         # route_debug/ snapshots) can be inspected. route.py is deterministic, so
         # a bare re-run wouldn't change anything anyway.
         print("\n########## routing (ordering=mps) ##########")
-        ur = route_attempt(tool, src, out, args.diff, diff, wide, route_nets,
+        ur = route_attempt(tool, src, out, do_diff, diff, wide, route_nets,
                            "mps", None, debug_dir)
 
         # Move the routed working file over the board. The project's existing

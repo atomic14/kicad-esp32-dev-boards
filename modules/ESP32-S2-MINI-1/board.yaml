@@ -8,6 +8,7 @@ strapping: [0, 45, 46]      # GPIOs sampled at reset (atomic14/datasheet); unsaf
 input_only: [46]     # GPIOs with no output driver
 builtin_led: GPIO34   # on-board LED -> safe GPIO pad nearest the LED on the PCB
 boot: GPIO0   # download/boot strapping pin the BOOT button pulls low
+diff: false   # dense board: coupled D+/D- pre-step strands other nets; route single-ended
 notes: >
   Source: https://www.atomic14.com/esp32/modules/esp32-s2-mini-1/ (and the
   Espressif datasheet referenced in pinout.json).
