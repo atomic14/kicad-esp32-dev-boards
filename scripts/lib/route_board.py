@@ -19,8 +19,9 @@ The pipeline (per board), each stage writing the working file in place:
   - via repair (re-insert dropped layer-transition vias) + GND re-fill / island
     stitch (gnd_finish).
 
-D+/D- route as a coupled differential pair by default; a module's board.yaml
-`diff: false` (or --no-diff) routes them single-ended, which dense boards prefer.
+D+/D- route as a coupled differential pair, automatically falling back to
+single-ended if the coupled pair strands other nets (dense boards); whichever
+connects more is kept. --diff / --no-diff force one mode.
 
 Routes in place: writes the result back to modules/<M>/<M>.kicad_pcb (the
 project's existing .kicad_pro/.kicad_dru carry the net classes + custom DRC
@@ -387,11 +388,10 @@ def main():
     ap.add_argument("module")
     ap.add_argument("--tool", default=None, help="KiCadRoutingTools dir")
     ap.add_argument("--diff", dest="diff", action="store_true",
-                    help="force coupled differential-pair routing of D+/D- "
-                         "(overrides the module's board.yaml `diff:` setting).")
+                    help="force coupled differential-pair routing of D+/D- only "
+                         "(default: try diff, fall back to single-ended).")
     ap.add_argument("--no-diff", dest="diff", action="store_false",
-                    help="force single-ended D+/D- (overrides board.yaml `diff:`). "
-                         "Dense boards route better single-ended.")
+                    help="force single-ended D+/D- only (skip the diff attempt).")
     ap.set_defaults(diff=None)
     args = ap.parse_args()
 
@@ -400,15 +400,6 @@ def main():
     src = REPO / "modules" / safe / f"{safe}.kicad_pcb"
     if not src.exists():
         raise SystemExit(f"{src} not found — run build_board.py first.")
-    # Per-module diff-pair default from board.yaml (`diff:`, default true); the
-    # CLI --diff/--no-diff override it. Dense modules (the MINIs) set diff:false —
-    # the coupled pre-step strands their other nets.
-    do_diff = args.diff
-    if do_diff is None:
-        import yaml
-        yml = REPO / "modules" / safe / "board.yaml"
-        cfg = (yaml.safe_load(yml.read_text()) or {}) if yml.exists() else {}
-        do_diff = bool(cfg.get("diff", True))
     # Route into a temp working file beside the board, then atomically move it
     # over <M>.kicad_pcb only once routing has succeeded. Keeps the original
     # intact on failure, and (being a distinct file) lets the router read the
@@ -440,22 +431,40 @@ def main():
     wide = [n for n in POWER_NETS if n in to_route]   # +3V3/+5V -> wide tracks
     route_nets = sorted(to_route)
 
-    try:
-        # One routing attempt (route.py's default mps ordering). If it doesn't
-        # fully connect we give up — the result is still written so it (and the
-        # route_debug/ snapshots) can be inspected. route.py is deterministic, so
-        # a bare re-run wouldn't change anything anyway.
-        print("\n########## routing (ordering=mps) ##########")
-        ur = route_attempt(tool, src, out, do_diff, diff, wide, route_nets,
-                           "mps", None, debug_dir)
+    # Routing modes to try, in order, keeping whichever connects the most. Default
+    # (no --diff/--no-diff): try the coupled D+/D- diff pair first, then fall back
+    # to single-ended — so every board gets a shot at diff routing, but one the
+    # coupled pair strands still routes. --diff / --no-diff force a single mode; a
+    # board with no D+/D- pair is single-ended only.
+    if len(diff) == 2 and args.diff is None:
+        modes = [True, False]
+    elif len(diff) == 2:
+        modes = [args.diff]
+    else:
+        modes = [False]
 
-        # Move the routed working file over the board. The project's existing
+    try:
+        best_out, best_ur = None, None
+        for mode in modes:
+            label = "diff-pair" if mode else "single-ended"
+            # Distinct working file per mode (only one mode -> use `out` directly).
+            attempt_out = (out if len(modes) == 1
+                           else out.parent / f"{out.stem}.{'diff' if mode else 'se'}.kicad_pcb")
+            print(f"\n########## routing: {label} (ordering=mps) ##########")
+            ur = route_attempt(tool, src, attempt_out, mode, diff, wide, route_nets,
+                               "mps", None, debug_dir)
+            if best_ur is None or len(ur) < len(best_ur):
+                best_out, best_ur = attempt_out, ur
+            if not ur:
+                break   # fully connected — no need to try the fallback
+
+        # Move the best working file over the board. The project's existing
         # .kicad_pro/.kicad_dru sit beside it, so DRC/KiCad still see the net
         # classes + custom rules.
-        os.replace(out, src)
-        if ur:
-            print(f"\nWrote {src} — {len(ur)} net(s) still unconnected: "
-                  f"{', '.join(sorted(ur))}")
+        os.replace(best_out, src)
+        if best_ur:
+            print(f"\nWrote {src} — {len(best_ur)} net(s) still unconnected: "
+                  f"{', '.join(sorted(best_ur))}")
         else:
             print(f"\nWrote {src} — fully connected")
     finally:
