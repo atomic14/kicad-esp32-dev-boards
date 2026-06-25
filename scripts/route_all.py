@@ -33,7 +33,9 @@ def modules():
 
 def main(argv):
     ap = argparse.ArgumentParser()
-    ap.add_argument("--diff", action="store_true", help="route D+/D- as a diff pair")
+    ap.add_argument("--no-diff", dest="diff", action="store_false",
+                    help="route D+/D- single-ended (diff-pair is the default)")
+    ap.set_defaults(diff=True)
     args = ap.parse_args(argv)
 
     lib_path = REPO / "library.json"
@@ -52,8 +54,8 @@ def main(argv):
     for i, m in enumerate(mods, 1):
         print(f"[{i:2}/{total}] {m:22} routing…", end="", flush=True)
         cmd = PY + [str(REPO / "scripts" / "lib" / "route_board.py"), m]
-        if args.diff:
-            cmd.append("--diff")
+        if not args.diff:
+            cmd.append("--no-diff")
         r = subprocess.run(cmd, capture_output=True, text=True)
         connected = "ALL NETS FULLY CONNECTED" in r.stdout
         if r.returncode != 0 and not connected:

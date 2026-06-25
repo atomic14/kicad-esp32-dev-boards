@@ -9,6 +9,7 @@ overrides: {}
 strapping: [2, 3, 7, 25, 26, 27, 28]      # GPIOs sampled at reset (atomic14/datasheet); unsafe for the on-board LED
 input_only: []     # GPIOs with no output driver
 builtin_led: GPIO5   # on-board LED -> safe GPIO pad nearest the LED on the PCB
+boot: GPIO28   # download/boot strapping pin the BOOT button pulls low
 notes: >
   Source: https://www.atomic14.com/esp32/modules/esp32-c5-wroom-1/
 

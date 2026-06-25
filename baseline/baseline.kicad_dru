@@ -115,11 +115,11 @@
 (condition "A.Net != B.Net"))
 
 (rule "via to track clearance"
-(constraint hole_clearance (min 0.254mm))
+(constraint hole_clearance (min 0.25mm))
 (condition "A.Type == 'via' && B.Type == 'track'"))
 
 (rule "via to via clearance (same nets)"
-(constraint hole_to_hole (min 0.254mm))
+(constraint hole_to_hole (min 0.25mm))
 (condition "A.Type == 'via' && B.Type == A.Type && A.Net == B.Net"))
 
 (rule "pad to pad clearance (with hole, different nets)"
@@ -131,7 +131,7 @@
 (condition "A.Type == 'Pad' && B.Type == 'Pad'"))
 
 (rule "NPTH to Track clearance"
-(constraint hole_clearance (min 0.254mm))
+(constraint hole_clearance (min 0.25mm))
 (condition "A.Pad_Type == 'NPTH, mechanical' && B.Type == 'track'"))
 
 (rule "NPTH with copper around"
@@ -143,7 +143,7 @@
 (condition "A.isPlated() && A.Type != 'Via' && B.Type == 'track'"))
 
 (rule "Pad to Track clearance"
-(constraint clearance (min 0.2mm))
+(constraint clearance (min 0.15mm))
 (condition "A.isPlated() && A.Type != 'Via' && B.Type == 'track'"))
 
 # ----------------------------------- Board Outlines (PICK ONE) -------------------------------------

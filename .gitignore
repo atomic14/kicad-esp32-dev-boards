@@ -23,5 +23,6 @@ fp-info-cache
 /modules/*/sym-lib-table
 /modules/*/3d-models/
 /modules/*/*.pretty/
+/modules/*/route_debug/
 
 .DS_Store

@@ -42,7 +42,9 @@ def main(argv):
     ap.add_argument("--no-route", action="store_true", help="build only; stop before routing")
     ap.add_argument("--render", action="store_true", help="also render 3D montages at the end")
     ap.add_argument("--all", action="store_true", help="clean + build + route + render")
-    ap.add_argument("--diff", action="store_true", help="forward diff-pair routing to route_all")
+    ap.add_argument("--no-diff", dest="diff", action="store_false",
+                    help="route D+/D- single-ended (diff-pair is the default)")
+    ap.set_defaults(diff=True)
     args = ap.parse_args(argv)
 
     if not (REPO / "library.json").exists():
@@ -63,7 +65,7 @@ def main(argv):
         return 1
 
     if do_route:
-        route_args = ["--diff"] if args.diff else []
+        route_args = [] if args.diff else ["--no-diff"]
         if stage("ROUTE + DRC", "route_all.py", *route_args):
             print("\nRouting reported failures (see summary above).", file=sys.stderr)
             # keep going to render if requested — a partial route is still worth seeing

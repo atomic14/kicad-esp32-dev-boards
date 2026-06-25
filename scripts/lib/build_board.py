@@ -16,6 +16,7 @@ Reads modules/<m>/board.yaml if present (do_not_break_out, overrides).
 """
 from __future__ import annotations
 import argparse
+import itertools
 import json
 import re
 import shutil
@@ -117,22 +118,57 @@ def resolve_led_pin(spec, pins, do_not, unsafe):
     return cand
 
 
+def resolve_boot_pin(spec, pins, do_not):
+    """Resolve a board.yaml ``boot`` value — the download/boot strapping GPIO the
+    on-board BOOT button pulls low — to its pin dict, or None if unset. Differs
+    per module (GPIO0 on the Xtensa parts, GPIO9 on most RISC-V parts, …), which
+    is why it can't be a fixed net name. Unlike the LED, the boot pin IS a
+    strapping pin by definition, so strapping is allowed; it only has to be a
+    real, broken-out I/O pin."""
+    if spec in (None, ""):
+        return None
+    s = str(spec).strip()
+    cand = None
+    m = re.match(r"(?:GPIO|IO)?(\d+)$", s, re.I)
+    if m:
+        cand = next((p for p in pins if p["gpio"] == int(m.group(1))), None)
+    if cand is None:
+        cand = next((p for p in pins if primary_name(p["name"]).lower() == s.lower()), None)
+    if cand is None:
+        raise ValueError(f"boot: no pin matches {spec!r}")
+    if not is_breakout(cand, do_not):
+        raise ValueError(
+            f"boot: pin {cand['name']} (#{cand['number']}) is not a broken-out "
+            f"signal (NC / power / excluded) — pick the module's boot GPIO")
+    return cand
+
+
 def breakout_split(module, do_not):
-    """Perimeter-walk the module's physical pads (left → bottom → up the right)
-    and split the broken-out signals into the two headers, left half / right
-    half. Returns (left_pins, right_pins)."""
+    """Split the broken-out signal pins between the two headers BY PHYSICAL SIDE:
+    left-edge pins to the left header, right-edge pins to the right header, and
+    bottom-edge pins to whichever side of the module's horizontal centre they sit
+    on. Order within each header follows the perimeter walk (left edge top→bottom
+    then bottom-left; bottom-right then right edge bottom→top) so header pins line
+    up with the module pads without crossing.
+
+    Previously this cut the perimeter ring at the COUNT midpoint, which — when the
+    left and right edges had unequal pin counts (e.g. C5/C6-WROOM, no bottom pins)
+    — pushed right-edge pins into the left header, so they routed clear across the
+    board. The caller pads the shorter header with GND to keep the two symmetric."""
     edges = footprint_edges.classify_edges(module)
-    ring = edges["left"] + edges["bottom"] + list(reversed(edges["right"]))
-    ring = [p for p in ring if is_breakout(p, do_not)]
-    seen, ordered = set(), []          # de-dup, keep order
-    for p in ring:
-        if p["number"] not in seen:
-            seen.add(p["number"]); ordered.append(p)
-    half = (len(ordered) + 1) // 2
-    return ordered[:half], ordered[half:]
+    bo = lambda e: [p for p in edges[e] if is_breakout(p, do_not)]
+    left_e, right_e = bo("left"), bo("right")
+    horiz = bo("bottom") + bo("top")          # pos == x on these edges
+    cx = (min(p["pos"] for p in horiz) + max(p["pos"] for p in horiz)) / 2 if horiz else 0.0
+    near_left = lambda e: [p for p in bo(e) if p["pos"] < cx]
+    near_right = lambda e: [p for p in bo(e) if p["pos"] >= cx]
+    left_pins = near_left("top") + left_e + near_left("bottom")
+    right_pins = near_right("bottom") + list(reversed(right_e)) + near_right("top")
+    return left_pins, right_pins
 
 
 SKELETON_LED_NET = "BUILTIN_LED"  # the skeleton's on-board LED net (baseline PCB)
+SKELETON_BOOT_NET = "BOOT"        # the skeleton's BOOT-button net (baseline PCB)
 
 
 def pick_builtin_led(module, pins, do_not, unsafe):
@@ -191,7 +227,14 @@ def parse(s: str):
 
 
 def newid() -> str:
-    return str(uuidlib.uuid4())
+    # Deterministic UUIDs: uuid5 over a per-process counter, so a rebuild is
+    # byte-identical. Random uuid4s otherwise reshuffle the net/item order
+    # route.py keys off, flipping marginal nets (e.g. D-) between builds.
+    return str(uuidlib.uuid5(_UUID_NS, str(next(_uuid_seq))))
+
+
+_UUID_NS = uuidlib.UUID("b1d4e7a2-0000-5000-8000-000000000001")
+_uuid_seq = itertools.count()
 
 
 def head(node) -> str | None:
@@ -343,7 +386,7 @@ def main():
     pins_by_num = {p["number"]: p for p in pinout["pins"]}
 
     # board.yaml (optional)
-    do_not, overrides, led_spec, unsafe = set(), {}, None, set()
+    do_not, overrides, led_spec, boot_spec, unsafe = set(), {}, None, None, set()
     yml = mod_dir / "board.yaml"
     if yml.exists():
         import yaml
@@ -351,6 +394,7 @@ def main():
         do_not = {str(x) for x in (cfg.get("do_not_break_out") or [])}
         overrides = {str(k): v for k, v in (cfg.get("overrides") or {}).items()}
         led_spec = cfg.get("builtin_led")
+        boot_spec = cfg.get("boot")
         # GPIO numbers unsafe to drive an LED: strapping + input-only (curated
         # per module from the atomic14 / datasheet pin data — see notes).
         unsafe = {int(x) for x in (cfg.get("strapping") or [])} | \
@@ -359,6 +403,11 @@ def main():
     # The pin the on-board LED (skeleton's BUILTIN_LED net) attaches to, if any.
     led_pin = resolve_led_pin(led_spec, pinout["pins"], do_not, unsafe)
     led_pin_num = led_pin["number"] if led_pin else None
+
+    # The pin the BOOT button (skeleton's BOOT net) attaches to — per-module
+    # strapping GPIO; was hard-wired to "GPIO0" before, wrong on the RISC-V parts.
+    boot_pin = resolve_boot_pin(boot_spec, pinout["pins"], do_not)
+    boot_pin_num = boot_pin["number"] if boot_pin else None
 
     # --- load baseline tree ---
     tree = sexpdata.loads((REPO / "baseline" / "baseline.kicad_sch").read_text())
@@ -412,14 +461,16 @@ def main():
             text = net or breakout_label(p)
             rot, just = LABEL_ORIENT[side]
             new_elements.append(global_label(text, ep[0], ep[1], rot, just))
-            # On-board LED pin: keep its GPIOxx label and add a BUILTIN_LED
-            # alias on a short outward stub so the skeleton's LED net joins this
-            # one (the net then carries both names — header stays readable).
-            if led_pin_num is not None and p["number"] == led_pin_num:
-                dx, dy = OUTWARD_VEC[side]
-                ax, ay = ep[0] + dx * 10.16, ep[1] + dy * 10.16
-                new_elements.append(wire(ep[0], ep[1], ax, ay))
-                new_elements.append(global_label("BUILTIN_LED", ax, ay, rot, just))
+            # On-board LED / BOOT-button pins: keep the GPIOxx label and add a
+            # short outward stub carrying the skeleton net's name, so that net
+            # (from the baseline LED resistor / BOOT button) joins this pin.
+            for alias_net, alias_num in ((SKELETON_LED_NET, led_pin_num),
+                                         (SKELETON_BOOT_NET, boot_pin_num)):
+                if alias_num is not None and p["number"] == alias_num:
+                    dx, dy = OUTWARD_VEC[side]
+                    ax, ay = ep[0] + dx * 10.16, ep[1] + dy * 10.16
+                    new_elements.append(wire(ep[0], ep[1], ax, ay))
+                    new_elements.append(global_label(alias_net, ax, ay, rot, just))
 
     # --- perimeter-walk split of break-out pins ---
     left_pins, right_pins = breakout_split(module, do_not)
@@ -474,8 +525,16 @@ def main():
     # Header net order, top -> bottom (matches the schematic rows and the PCB
     # footprint pad order, where pad 1 is at the top): rail, signals, GND. J3 is
     # reversed to match its flipped schematic header.
-    rows_left = ["+3V3"] + [label_net(p) for p in left_pins] + ["GND"]
-    rows_right = list(reversed(["+5V"] + [label_net(p) for p in right_pins] + ["GND"]))
+    # Build each header's signal list, then PAD the shorter side with GND so both
+    # headers have the same pin count (symmetric board, aligned headers). Padding
+    # GND sits at the bottom, next to the existing GND cap.
+    sig_left = [label_net(p) for p in left_pins]
+    sig_right = [label_net(p) for p in right_pins]
+    npad = max(len(sig_left), len(sig_right))
+    sig_left += ["GND"] * (npad - len(sig_left))
+    sig_right += ["GND"] * (npad - len(sig_right))
+    rows_left = ["+3V3"] + sig_left + ["GND"]
+    rows_right = list(reversed(["+5V"] + sig_right + ["GND"]))
     # On the PCB, the LED pin's copper net must match the skeleton's BUILTIN_LED
     # pad (module pad + its header pad + the LED resistor = one net). The
     # schematic header label stays GPIOxx; the net just canonicalises to
@@ -484,6 +543,12 @@ def main():
         chosen_lbl = breakout_label(led_pin)
         rows_left = ["BUILTIN_LED" if r == chosen_lbl else r for r in rows_left]
         rows_right = ["BUILTIN_LED" if r == chosen_lbl else r for r in rows_right]
+    # Likewise the BOOT pin: its header/module copper joins the skeleton's BOOT
+    # button net (canonicalised to BOOT via the alias added at the module pin).
+    if boot_pin_num is not None:
+        boot_lbl = breakout_label(boot_pin)
+        rows_left = ["BOOT" if r == boot_lbl else r for r in rows_left]
+        rows_right = ["BOOT" if r == boot_lbl else r for r in rows_right]
     j2_uuid = child(left_hdr[0], "uuid")[1]
     j3_uuid = child(right_hdr[0], "uuid")[1]
 
@@ -517,6 +582,8 @@ def main():
     }
     if led_pin_num is not None:
         module_pad_nets[str(led_pin_num)] = "BUILTIN_LED"
+    if boot_pin_num is not None:
+        module_pad_nets[str(boot_pin_num)] = "BOOT"
     headers = [
         {"ref": "J2", "side": "left", "nets": rows_left, "uuid": j2_uuid},
         {"ref": "J3", "side": "right", "nets": rows_right, "uuid": j3_uuid},

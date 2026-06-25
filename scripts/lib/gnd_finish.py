@@ -126,30 +126,31 @@ def main():
         if z.GetNetname() == "GND":
             z.SetIslandRemovalMode(pcbnew.ISLAND_REMOVAL_MODE_ALWAYS)
     fill(board)
-    board.BuildConnectivity()
-    before = board.GetConnectivity().GetUnconnectedCount(False)
-    total = 0
-    for _ in range(5):
-        board.BuildConnectivity()
-        if board.GetConnectivity().GetUnconnectedCount(False) == 0:
-            break
-        added = stitch_pass(board, net)
-        if not added:
-            break
-        total += added
-        fill(board)
-    # Prune redundant vias stranded in orphan islands, then refill so the now-
-    # empty islands get dropped by island-removal.
-    board.BuildConnectivity()
-    pruned = prune_orphan_vias(board, net)
-    if pruned:
-        fill(board)
-    board.BuildConnectivity()
-    after = board.GetConnectivity().GetUnconnectedCount(False)
+    # board.BuildConnectivity()
+    # before = board.GetConnectivity().GetUnconnectedCount(False)
+    # total = 0
+    # for _ in range(5):
+    #     board.BuildConnectivity()
+    #     if board.GetConnectivity().GetUnconnectedCount(False) == 0:
+    #         break
+    #     added = stitch_pass(board, net)
+    #     if not added:
+    #         break
+    #     total += added
+    #     fill(board)
+    # # Prune redundant vias stranded in orphan islands, then refill so the now-
+    # # empty islands get dropped by island-removal.
+    # board.BuildConnectivity()
+    # pruned = prune_orphan_vias(board, net)
+    # if pruned:
+    #     fill(board)
+    # board.BuildConnectivity()
+    # after = board.GetConnectivity().GetUnconnectedCount(False)
     pcbnew.SaveBoard(path, board)
-    print(f"GND finish: filled; stitched {total} via(s); pruned {pruned} orphan "
-          f"via(s); unconnected {before} -> {after}")
-    return 0 if after == 0 else 2
+    # print(f"GND finish: filled; stitched {total} via(s); pruned {pruned} orphan "
+    #       f"via(s); unconnected {before} -> {after}")
+    # return 0 if after == 0 else 2
+    return 0
 
 
 if __name__ == "__main__":

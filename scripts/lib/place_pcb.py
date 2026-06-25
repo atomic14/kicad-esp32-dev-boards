@@ -31,6 +31,7 @@ and the schematic symbol UUIDs (so each footprint links back to its symbol).
 """
 from __future__ import annotations
 
+import itertools
 import json
 import math
 import uuid as uuidlib
@@ -61,7 +62,13 @@ def parse(s: str):
 
 
 def newid() -> str:
-    return str(uuidlib.uuid4())
+    # Deterministic UUIDs (see build_board.newid); distinct namespace so the two
+    # generators never collide within one board.
+    return str(uuidlib.uuid5(_UUID_NS, str(next(_uuid_seq))))
+
+
+_UUID_NS = uuidlib.UUID("b1d4e7a2-0000-5000-8000-000000000002")
+_uuid_seq = itertools.count()
 
 
 def head(node) -> str | None:
