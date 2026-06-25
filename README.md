@@ -52,7 +52,8 @@ Open any `modules/<MODULE>/<MODULE>.kicad_pro` in KiCad.
 DECISIONS.md            design decisions + rationale (read for the "why")
 library.json            GENERATED per machine by resolve_library.py (git-ignore-able)
 pyproject.toml/uv.lock  pinned Python env (kicad-skip, sexpdata, pyyaml)
-baseline/               the skeleton KiCad project (INPUT — never edit)
+baseline-left-en/       skeleton KiCad project (INPUT — never edit); EN button on the left
+baseline-right-en/      same skeleton mirrored, EN on the right — generator auto-picks per module
   BasicEsp32Footprints.pretty/, 3d-models/, fp-lib-table   project-local footprints + 3D models
 scripts/                orchestrators (run these); scripts/lib/ holds the per-module primitives
 modules/<MODULE>/
@@ -61,7 +62,7 @@ modules/<MODULE>/
   <MODULE>.kicad_sch/pro/pcb   GENERATED board
   fp-lib-table + *.pretty/ + asset dirs   GENERATED (copied from baseline)
 build/<MODULE>/         GENERATED validation artifacts
-docs/AGENT_END_TO_END.md  spec for running one module end-to-end (incl. via an agent)
+docs/AGENT_END_TO_END.md  agent spec: curate every board.yaml, then pilot-verify one module
 ```
 
 ## The pipeline (`scripts/`)
@@ -73,7 +74,7 @@ docs/AGENT_END_TO_END.md  spec for running one module end-to-end (incl. via an a
 | `make.py` | **THE command** — chains clean → build → route → render (flags toggle stages) | ✅ |
 | `resolve_library.py` | Find KiCad libs + `kicad-cli` → `library.json` | ✅ run once/machine |
 | `build_all.py [--clean]` | extract → build → validate every curated module | ✅ |
-| `route_all.py [--diff]` | autoroute (writes back in place) + DRC every generated board | ✅ |
+| `route_all.py [--no-diff]` | autoroute every board (diff-pair with single-ended fallback; writes back in place) + DRC | ✅ |
 | `render_boards.py` | 3D montages of every board → `build/` | ✅ |
 | `clean.py` | remove generated output for a fresh run (keeps `board.yaml`/`pinout.json`/`library.json`; leaves any non-pipeline files, e.g. manual `*_routed.*`, alone) | ✅ |
 
@@ -108,6 +109,9 @@ GND, EN, USB→D±, GPIO→`GPIOxx` labels). You decide:
   PCB (shortest trace); `build_board.py pick_builtin_led()` computes exactly that,
   and the build **hard-errors** if `builtin_led` names a strapping / input-only /
   non-broken-out pin. "Safe" = I/O-capable, non-strapping, broken-out GPIO.
+- **`boot`**: the download/boot strapping GPIO the on-board BOOT button pulls low —
+  GPIO0 on Xtensa (ESP32/-S2/-S3), GPIO9 on most RISC-V (-C3/-C6/-H2), GPIO28 on
+  -C5. Varies per module, so the generator aliases the skeleton's `BOOT` net onto it.
 
 ```yaml
 module: ESP32-S3-WROOM-1
@@ -117,6 +121,7 @@ overrides: {}
 strapping: [0, 3, 45, 46]   # sampled at reset — unsafe for the LED (GPIO45 = VDD_SPI)
 input_only: []              # no output driver
 builtin_led: GPIO48         # safe GPIO pad nearest the on-board LED (NOT GPIO45, a strap)
+boot: GPIO0                 # download/boot strapping pin the BOOT button pulls low
 notes: >
   Source: https://www.atomic14.com/esp32/modules/esp32-s3-wroom-1/ ...
 ```
