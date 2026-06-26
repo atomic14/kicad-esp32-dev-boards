@@ -15,16 +15,16 @@ Placement rules (all deterministic, +y is DOWN in KiCad):
   * Left header on the left, right header on the right, symmetric about centre.
   * The board's bottom edge sits 0.5 mm below the USB socket's lowest plated
     through-hole pad (the board-edge copper clearance), so the socket body still
-    overhangs the edge while its solder pads clear it. Header bottoms align with
-    that edge.
+    overhangs the edge while its solder pads clear it.
   * Module sits above the existing components, antenna at the top, with a
     >= 5 mm gap between the module and the components.
-  * The module body top (antenna excluded) aligns with the header tops — unless
-    the module is too tall to do that without breaking the 5 mm gap, in which
-    case it's pushed up and its body top rises above the header tops.
-  * Board outline spans the header bottoms (bottom edge) to the module body top
-    (top edge). The antenna overhangs the top edge; the USB socket overhangs the
-    bottom edge.
+  * Each header's TOP aligns with the module body top, so its pins overlap the
+    module's pin rows for short break-out traces — UNLESS the header is longer
+    than the module->USB span, in which case it stays bottom-aligned to the USB
+    edge and the board grows up to fit it (a header longer than the board height).
+  * Board outline spans the module body top (or a tall header's top) to the lower
+    of the USB edge / header bottoms. The antenna overhangs the top edge; the USB
+    socket overhangs the bottom edge.
 
 `build_pcb()` is called by build_board.py with the already-computed net mapping
 and the schematic symbol UUIDs (so each footprint links back to its symbol).
@@ -433,33 +433,44 @@ def compute_layout(tree, fp_path: Path, headers: list) -> dict:
     tht_bottom = tht_copper_bottom(j1_node)
     board_bottom = tht_bottom + EDGE_CLEAR
 
-    # --- header origins: courtyard bottom flush with the board bottom edge ---
-    def hdr_bottom_local(n):
-        return (n - 1) * HDR_PITCH + HDR_CRT_HALF
+    usb_edge = board_bottom
+    def hdr_height(n):
+        return (n - 1) * HDR_PITCH + HDR_CRT_HALF - HDR_CRT_TOP   # courtyard height
 
+    # --- module geometry + placement (UNCHANGED from the original: the module is
+    # placed against the taller header's bottom-aligned top, pushed up to clear the
+    # baseline components — moving it shifts the antenna keepout onto the pour). ---
     for h in headers:
-        n = len(h["nets"])
-        h["n"] = n
-        h["y"] = board_bottom - hdr_bottom_local(n)   # footprint origin (pad 1)
-        h["top"] = h["y"] + HDR_CRT_TOP                # courtyard top, global
-    header_top = min(h["top"] for h in headers)        # the taller header's top
+        h["n"] = len(h["nets"])
+    header_top0 = min(usb_edge - hdr_height(h["n"]) for h in headers)  # bottom-aligned top
 
-    # --- module geometry ---
     fp_node = parse(fp_path.read_text())
     crt = courtyard_bbox_local(fp_node) or body_bbox_local(fp_node)
     crt_minx, crt_maxx, crt_miny, crt_maxy = crt
     pad_min_y, _ = pad_y_range(fp_node)
     divider = antenna_divider_local(fp_node, pad_min_y)  # body top, local
     crt_cx = (crt_minx + crt_maxx) / 2.0
+    pad_top = pad_copper_top_local(fp_node)
 
     mx = center_x - crt_cx                  # centre the module courtyard
-    my = header_top - divider               # align body top with header tops
-    if my + crt_maxy > comp_top - COMP_GAP:  # would break the 5 mm gap -> push up
+    my = header_top0 - divider              # align body top with the header tops
+    if my + crt_maxy > comp_top - COMP_GAP:  # would break the component gap -> push up
         my = (comp_top - COMP_GAP) - crt_maxy
-    # board top edge = module body top, but kept >= 0.5 mm clear of the topmost
-    # pad copper (the MINI modules' top pad row sits right on the body edge).
-    pad_top = pad_copper_top_local(fp_node)
-    board_top = my + min(divider, pad_top - EDGE_CLEAR)
+    module_top = my + min(divider, pad_top - EDGE_CLEAR)
+
+    # --- header origins: align each header's courtyard TOP with the module top so
+    # its pins overlap the module's pin rows (short break-out traces). BUT never
+    # drag the header bottom past the USB edge — a header LONGER than the
+    # module->USB span stays bottom-aligned to the USB and the board grows UP to
+    # fit it (so a long header isn't stranded far below everything). ---
+    for h in headers:
+        ctop = min(module_top, usb_edge - hdr_height(h["n"]))   # courtyard top, global
+        h["y"] = ctop - HDR_CRT_TOP                             # pad-1 origin
+        h["top"] = ctop
+    header_top = min(h["top"] for h in headers)
+    board_top = min(module_top, header_top)                # grow up for a long header
+    board_bottom = max(usb_edge,
+                       max(h["y"] + (h["n"] - 1) * HDR_PITCH + HDR_CRT_HALF for h in headers))
 
     # --- header x: clear the widest obstacle (components or module), centred ---
     mod_minx, mod_maxx = mx + crt_minx, mx + crt_maxx
