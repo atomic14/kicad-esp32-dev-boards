@@ -54,7 +54,7 @@ REPO = Path(__file__).resolve().parents[2]
 # (where the router's rip-up + cleanup safely cover every net).
 TRACK_WIDTH = 0.15
 CLEARANCE = 0.15
-VIA_SIZE = 0.5
+VIA_SIZE = 0.6
 VIA_DRILL = 0.3
 BOARD_EDGE_CLEARANCE = 0.5  # = baseline min_copper_edge_clearance
 HOLE_TO_HOLE = 0.27         # = baseline min_hole_to_hole
@@ -69,7 +69,7 @@ LAYERS = ["F.Cu", "B.Cu"]
 # Use both layers equally - helps with routing on a 2 layer board
 LAYER_COSTS = ["1.0", "1.0"]
 DIFF_PAIR_GAP = 0.15  # P-to-N gap for the USB D+/D- pair
-POWER_WIDTH = 0.2     # +3V3/+5V routed as wide tracks (low impedance) via
+POWER_WIDTH = 0.4     # +3V3/+5V routed as wide tracks (low impedance) via
                       # --power-nets-widths in the routing pass.
 POWER_NETS = ["+3V3", "+5V", "GND"]   # widened to POWER_WIDTH where routed; GND is
                                       # the pour, so it's filtered out of the route nets
