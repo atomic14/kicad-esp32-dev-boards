@@ -54,7 +54,7 @@ Pick a representative module (a dense MINI is the best stress test, e.g.
 `ESP32-S3-MINI-1`) and run the full pipeline to confirm the recipe + your data:
 
 - `uv run python scripts/lib/build_board.py "<M>"`
-- `uv run python scripts/lib/validate.py modules/<M>/<M>.kicad_sch`
+- `uv run python scripts/lib/validate.py out/<M>/<M>.kicad_sch`
   — then **Read the printed PDF** and check the module, power/USB/boot wiring, and
   both headers. Gate: **no new ERROR-severity violations** (script exits 0). New
   *warnings* are expected (e.g. the `multiple_net_names` from the LED/BOOT alias);

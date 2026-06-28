@@ -100,16 +100,23 @@ kicad_automation/
 │       ├── route_board.py      # autoroute one board via KiCadRoutingTools (sibling repo)
 │       ├── fill_zones.py / gnd_finish.py / hole_keepouts.py / via_repair.py  # PCB finishing
 │       └── validate.py         # ERC delta vs baseline + PDF render
-├── modules/<module>/
+├── modules/<module>/       # CURATED SOURCE only (committed)
 │   ├── pinout.json         # AUTO — ground truth from the symbol, never hand-edited
-│   ├── board.yaml          # CURATED — the only hand-authored file (schema below)
-│   ├── <module>.kicad_sch/.kicad_pcb/.kicad_pro  # OUTPUT — generated board (routed PCB)
-│   └── route_debug/        # GENERATED — per-stage routing snapshots for inspection
-└── build/<board>/          # validation artifacts (erc.json, *.pdf)
+│   └── board.yaml          # CURATED — the only hand-authored file (schema below)
+├── out/<module>/           # GENERATED board — git-ignored, disposable (rm -rf out)
+│   ├── <module>.kicad_sch/.kicad_pcb/.kicad_pro  # the generated, routed board
+│   ├── fp-lib-table + *.pretty/ + asset dirs     # copied from baseline
+│   └── route_debug/        # per-stage routing snapshots for inspection
+└── build/<board>/          # validation artifacts (erc.json, *.pdf) — disposable
 ```
 
-Decision: **one folder per module** (user-preferred). Data is layered —
-auto-extracted truth (`pinout.json`) vs human/curated decisions (`board.yaml`).
+Decision: **source and output live in separate trees** — `modules/<M>/` holds
+only the curated source (`board.yaml` + cached `pinout.json`), everything
+generated goes under `out/<M>/`. So cleaning is `rm -rf out build` with no
+name-matching heuristic, and the source tree stays pristine and reviewable.
+(Earlier this was one folder per module; mixing generated files with the source
+made a clean rebuild fragile.) Data is layered — auto-extracted truth
+(`pinout.json`) vs human/curated decisions (`board.yaml`).
 
 ## Board-generation approach (user decision)
 
@@ -242,7 +249,7 @@ uv run python scripts/route_all.py        # autoroute + DRC every generated boar
 # single module:
 uv run python scripts/lib/extract_pinout.py "ESP32-C3-MINI-1"
 uv run python scripts/lib/build_board.py "ESP32-C3-MINI-1"
-uv run python scripts/lib/validate.py modules/ESP32-C3-MINI-1/ESP32-C3-MINI-1.kicad_sch
+uv run python scripts/lib/validate.py out/ESP32-C3-MINI-1/ESP32-C3-MINI-1.kicad_sch
 uv run python scripts/lib/route_board.py "ESP32-C3-MINI-1"
 ```
 
@@ -251,6 +258,6 @@ uv run python scripts/lib/route_board.py "ESP32-C3-MINI-1"
 - The generator script (Approach A): clone baseline → embed module lib_symbol →
   place module + two perimeter-split headers + power-symbols + net labels.
   (Mechanics proven by the end-to-end run; recover patterns from
-  `modules/ESP32-C3-MINI-1/ESP32-C3-MINI-1.kicad_sch`.)
+  `out/ESP32-C3-MINI-1/ESP32-C3-MINI-1.kicad_sch`.)
 - Curate each module's `board.yaml` (do-not-break-out flash/PSRAM pins).
 - ESP32-C61: no library symbol yet.

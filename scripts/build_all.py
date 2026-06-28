@@ -74,7 +74,7 @@ def main(argv):
             print(f"[{sym}] build_board failed:\n{b.stderr}", file=sys.stderr)
             continue
         print(" validating…", end="", flush=True)
-        v = run("lib/validate.py", f"modules/{safe}/{safe}.kicad_sch")
+        v = run("lib/validate.py", f"out/{safe}/{safe}.kicad_sch")
         ok = v.returncode == 0
         print(" PASS" if ok else " VALIDATE-FAIL", flush=True)
         rows.append((sym, "PASS" if ok else "VALIDATE-FAIL"))

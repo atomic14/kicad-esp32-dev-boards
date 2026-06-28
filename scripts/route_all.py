@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Route every generated board with route_board.py and DRC each one.
 
-For each modules/<M>/<M>.kicad_pcb it runs the routing pipeline, then a
+For each out/<M>/<M>.kicad_pcb it runs the routing pipeline, then a
 kicad-cli DRC, and prints a summary: connectivity (all nets connected?) and the
 real DRC error count (excluding the GND-plane "unconnected" that only resolves
 once KiCad refills the zone, and which check_connected already accounts for).
@@ -23,9 +23,9 @@ PY = [sys.executable]
 
 
 def modules():
-    """Module dir names that have a generated PCB to route."""
+    """Module dir names that have a generated PCB to route (under out/)."""
     out = []
-    for d in sorted((REPO / "modules").glob("*/")):
+    for d in sorted((REPO / "out").glob("*/")):
         if (d / f"{d.name}.kicad_pcb").exists():
             out.append(d.name)
     return out
@@ -68,7 +68,7 @@ def main(argv):
         # should leave nothing unconnected, so any unconnected item is a real
         # defect to surface, not a benign zone-fill artifact to hide.
         print(" DRC…", end="", flush=True)
-        board = REPO / "modules" / m / f"{m}.kicad_pcb"
+        board = REPO / "out" / m / f"{m}.kicad_pcb"
         rpt = tempfile.mktemp(suffix=".rpt")
         subprocess.run([cli, "pcb", "drc", "--severity-error", str(board), "-o", rpt],
                        capture_output=True)

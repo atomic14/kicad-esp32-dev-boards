@@ -8,7 +8,7 @@ Uses kicad-cli (path from library.json) for the 3D renders and ImageMagick
 (`magick`) for the montage. The pin-header STEP models live next to KiCad's
 bundled footprints, so KICAD10_3DMODEL_DIR is pointed there for the render.
 
-Renders modules/<M>/<M>.kicad_pcb (routing writes back in place, so this is the
+Renders out/<M>/<M>.kicad_pcb (routing writes back in place, so this is the
 routed board once it's been routed). Note: the GND copper pour is unfilled in
 headless renders (it fills when opened in KiCad), so the montage shows the
 tracks/vias but not the GND fill.
@@ -47,7 +47,7 @@ def find_font():
 def boards():
     """(module_name, pcb_path) for every module with a generated PCB."""
     out = []
-    for d in sorted((REPO / "modules").glob("*/")):
+    for d in sorted((REPO / "out").glob("*/")):
         pcb = d / f"{d.name}.kicad_pcb"
         if pcb.exists():
             out.append((d.name, pcb))

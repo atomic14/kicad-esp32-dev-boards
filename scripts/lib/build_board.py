@@ -391,7 +391,9 @@ def main():
     args = ap.parse_args()
     module = args.module
     safe = module.replace("/", "_")
-    mod_dir = REPO / "modules" / safe
+    mod_dir = REPO / "modules" / safe        # curated SOURCE: board.yaml, pinout.json
+    out_dir = REPO / "out" / safe            # GENERATED board (disposable; see clean.py)
+    out_dir.mkdir(parents=True, exist_ok=True)
     base = baseline_dir(module)   # EN-left or EN-right baseline variant
 
     pinout = json.loads((mod_dir / "pinout.json").read_text())
@@ -568,7 +570,7 @@ def main():
     idx = next(i for i, n in enumerate(tree) if head(n) == "sheet_instances")
     tree[idx:idx] = new_elements
 
-    out = args.out or (mod_dir / f"{safe}.kicad_sch")
+    out = args.out or (out_dir / f"{safe}.kicad_sch")
     # Rebrand the project name on every symbol instance (cloned baseline + new)
     # so the board is a coherent standalone project. "baseline" appears in the
     # schematic only as the instance project name, so this is safe.
@@ -582,7 +584,7 @@ def main():
         if not src.exists():
             continue
         text = src.read_text().replace("baseline", safe)
-        (mod_dir / f"{safe}.{ext}").write_text(text)
+        (out_dir / f"{safe}.{ext}").write_text(text)
 
     # --- lay out the PCB: place module + headers, assign nets, draw outline ---
     fp_dir = Path(LIBRARY["footprint_lib"])
@@ -600,7 +602,7 @@ def main():
         {"ref": "J3", "side": "right", "nets": rows_right, "uuid": j3_uuid},
     ]
     geo = place_pcb.build_pcb(
-        mod_dir / f"{safe}.kicad_pcb", module,
+        out_dir / f"{safe}.kicad_pcb", module,
         footprint_edges.find_footprint(fp_dir, module),
         lib_prop(mod_libsym, "Footprint"),
         module_pad_nets, u1_uuid, headers, f"{safe}.kicad_sch")
@@ -613,11 +615,11 @@ def main():
     for tbl in ("fp-lib-table", "sym-lib-table"):
         src = base / tbl
         if src.exists():
-            (mod_dir / tbl).write_text(src.read_text())
+            (out_dir / tbl).write_text(src.read_text())
     assets = [d for d in base.iterdir() if d.is_dir()
               and not d.name.startswith(".") and not d.name.endswith("-backups")]
     for d in assets:
-        shutil.copytree(d, mod_dir / d.name, dirs_exist_ok=True,
+        shutil.copytree(d, out_dir / d.name, dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns(".DS_Store"))
 
     names = ", ".join(sorted(d.name for d in assets)) or "none"
