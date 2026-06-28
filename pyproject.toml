@@ -9,7 +9,3 @@ dependencies = [
     "scipy>=1.13.1",
     "shapely>=2.0.7",
 ]
-
-[[tool.uv.index]]
-url = "https://pypi.apple.com/simple"
-default = true
