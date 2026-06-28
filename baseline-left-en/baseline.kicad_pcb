@@ -89,7 +89,6 @@
 		)
 		(capping no)
 		(filling no)
-		(zone_defaults)
 		(pcbplotparams
 			(layerselection 0x00000000_00000000_55555555_5755f5ff)
 			(plot_on_all_layers_selection 0x00000000_00000000_00000000_00000000)
@@ -1074,12 +1073,6 @@
 		(path "/4c3a76c5-c963-4064-9095-f57b88c1856a")
 		(sheetname "/")
 		(sheetfile "baseline.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "2")
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -1094,7 +1087,7 @@
 		)
 		(fp_line
 			(start -2.03 -1.54)
-			(end -2.03 -0.88)
+			(end -2.03 -1.13)
 			(stroke
 				(width 0.15)
 				(type solid)
@@ -1114,7 +1107,7 @@
 		)
 		(fp_line
 			(start -2.03 1.54)
-			(end -2.03 0.88)
+			(end -2.03 1.21)
 			(stroke
 				(width 0.15)
 				(type solid)
@@ -3593,12 +3586,6 @@
 		(path "/ed5b57e9-54af-448e-b615-e229588fd1f9")
 		(sheetname "/")
 		(sheetfile "baseline.kicad_sch")
-		(units
-			(unit
-				(name "A")
-				(pins "1" "2")
-			)
-		)
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
@@ -3613,7 +3600,7 @@
 		)
 		(fp_line
 			(start -2.03 -1.54)
-			(end -2.03 -0.88)
+			(end -2.03 -1.13)
 			(stroke
 				(width 0.15)
 				(type solid)
@@ -3633,7 +3620,7 @@
 		)
 		(fp_line
 			(start -2.03 1.54)
-			(end -2.03 0.88)
+			(end -2.03 1.21)
 			(stroke
 				(width 0.15)
 				(type solid)
