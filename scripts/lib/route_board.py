@@ -6,8 +6,10 @@ so most nets cross layers (a via per net). Both layers carry signal EQUALLY
 (--layer-costs 1.0/1.0); penalising B.Cu choked routing on a 2-layer board.
 
 The pipeline (per board), each stage writing the working file in place:
-  - GND plane pour on B.Cu (route_planes) then fill (fill_zones), so route.py
-    sees the poured copper. GND is the POUR — it's excluded from the route pass.
+  - GND plane pour on B.Cu only (route_planes) then fill (fill_zones), so route.py
+    sees the poured bottom copper. GND is the POUR — excluded from the route pass.
+    The F.Cu (top) plane is deferred until after routing (below): pouring it up
+    front fills the layer the signals need, carving it into stranded GND islands.
   - keepout rings around the NPTH mounting holes (hole_keepouts) so signal
     tracks/vias hold the required clearance from them.
   - ONE whole-board route.py pass: every signal at 0.15mm track / 0.15mm
@@ -16,14 +18,19 @@ The pipeline (per board), each stage writing the working file in place:
     pass (rip-up ACROSS separate invocations left shorting fragments — see git
     history). If the pass strands nets, ONE recovery pass retries them first
     (original ordering) from the same clean input, kept only if it improves.
-  - via repair (re-insert dropped layer-transition vias) + GND re-fill / island
-    stitch (gnd_finish).
+  - via repair (re-insert dropped layer-transition vias).
+  - GND plane pour on F.Cu now (route_planes), filling the top around the routed
+    tracks, then gnd_finish: re-fill, stitch each F.Cu/B.Cu island to the plane
+    with a via, and drop orphan stubs.
+  - GND straggler routing (route_gnd_stragglers): any GND pad still cut off (an
+    island with no opposite-layer plane to via to) gets a real routed GND track,
+    then gnd_finish runs once more to merge it.
 
 D+/D- route as a coupled differential pair, automatically falling back to
 single-ended if the coupled pair strands other nets (dense boards); whichever
 connects more is kept. --diff / --no-diff force one mode.
 
-Routes in place: writes the result back to modules/<M>/<M>.kicad_pcb (the
+Routes in place: writes the result back to out/<M>/<M>.kicad_pcb (the
 project's existing .kicad_pro/.kicad_dru carry the net classes + custom DRC
 rules). Routing runs in temp working files moved over the board only on success,
 so a failure leaves the original untouched. Expects a freshly built board —
@@ -54,10 +61,10 @@ REPO = Path(__file__).resolve().parents[2]
 # (where the router's rip-up + cleanup safely cover every net).
 TRACK_WIDTH = 0.15
 CLEARANCE = 0.15
-VIA_SIZE = 0.6
+VIA_SIZE = 0.5
 VIA_DRILL = 0.3
 BOARD_EDGE_CLEARANCE = 0.5  # = baseline min_copper_edge_clearance
-HOLE_TO_HOLE = 0.27         # = baseline min_hole_to_hole
+HOLE_TO_HOLE = 0.45         # = baseline min_hole_to_hole
 GRID_STEP = 0.05            # fine grid board-wide (needed for the USB-C escape)
 MAX_RIPUP = 10              # blockers a net may rip up to fit. Raising this
                             # globally is NOT a win: a higher limit reshuffles the
@@ -75,6 +82,8 @@ POWER_NETS = ["+3V3", "+5V", "GND"]   # widened to POWER_WIDTH where routed; GND
                                       # the pour, so it's filtered out of the route nets
 GND_VIA_PAD_CLEARANCE = 0.25  # GND stitching vias sit BESIDE pads (not in them),
                              # this far from the pad edge (via-in-pad discouraged)
+SIGNAL_VIA_PAD_CLEARANCE = 0.25  # same, for signal nets: keep route.py from dropping
+                                 # a via in a routed net's own SMD pad (--same-net-pad-clearance)
 KEEPOUT_LAYER = "User.2"  # route.py reads keepout polygons from this user layer;
                           # hole_keepouts.py draws NPTH-clearance rings there.
 
@@ -138,18 +147,63 @@ def finish_gnd(out):
     if proc.returncode not in (0, 2):
         sys.stderr.write(proc.stdout[-1500:] + proc.stderr[-500:])
 
+
+def prestitch_gnd(out):
+    """Before routing (B.Cu plane still whole), stitch a clean via from each
+    top-side GND pad down to the plane, so routing flows around them and no GND
+    pad ends up stranded on a carved-off island. See gnd_prestitch.py."""
+    print("\n=== pass: GND pre-stitch (protect pads before routing) ===")
+    proc = subprocess.run([kicad_python(), str(REPO / "scripts" / "lib" / "gnd_prestitch.py"), str(out)],
+                          capture_output=True, text=True)
+    print("  " + (proc.stdout.strip().splitlines() or ["(no output)"])[-1])
+    if proc.returncode != 0:
+        sys.stderr.write(proc.stdout[-1500:] + proc.stderr[-500:])
+
+
+def route_gnd_stragglers(tool, out):
+    """Route a GND track to any cut-off GND pad a via can't reach (an island with
+    no opposite-layer plane beneath it). gnd_stragglers.py puts each stranded pad
+    and its nearest main-plane GND pad on a temp net — route.py skips GND itself
+    (it counts the filled zone as connecting every GND pad) but WILL route a net
+    with no zone — then renames the routed copper back to GND. Returns True if it
+    routed anything (caller should re-run finish_gnd to merge the island)."""
+    lib = REPO / "scripts" / "lib"
+    prep = out.parent / f"{out.stem}.strag.kicad_pcb"
+    proc = subprocess.run([kicad_python(), str(lib / "gnd_stragglers.py"),
+                           "prepare", str(out), str(prep)], capture_output=True, text=True)
+    nets = next((ln.split("=", 1)[1].strip() for ln in proc.stdout.splitlines()
+                 if ln.startswith("STRAGGLER_NETS=")), "")
+    strag = [n for n in nets.split(",") if n]
+    if not strag:
+        prep.unlink(missing_ok=True)
+        return False
+    print(f"\n=== pass: GND straggler routing ({len(strag)} cut-off pad(s): "
+          f"{', '.join(strag)}) ===")
+    routed = out.parent / f"{out.stem}.stragrt.kicad_pcb"
+    run_pass(tool, "gnd stragglers", prep, routed, strag, TRACK_WIDTH, CLEARANCE,
+             GRID_STEP, ordering="mps", keepout_layer=KEEPOUT_LAYER)
+    subprocess.run([kicad_python(), str(lib / "gnd_stragglers.py"), "restore", str(routed)],
+                   capture_output=True, text=True)
+    shutil.move(routed, out)
+    prep.unlink(missing_ok=True)
+    return True
+
+
 def run_pass(tool: Path, label: str, inp: Path, out: Path, nets: list[str],
              track: float, clearance: float, grid_step: float | None,
              power_nets: list[str] | None = None,
              power_widths: list[float] | None = None,
              ordering: str = "mps", direction: str | None = None,
-             keepout_layer: str | None = None, max_ripup: int = MAX_RIPUP) -> dict:
+             keepout_layer: str | None = None, max_ripup: int = MAX_RIPUP,
+             same_net_pad_clearance: float | None = None) -> dict:
     """Run one route.py pass over `nets`; return its JSON summary. `power_nets`
     (with matching `power_widths`) route at their own wider width in the same
     pass — used for +3V3/+5V/GND. `ordering`/`direction` pick the net-ordering
     and per-net sweep strategy. `max_ripup` bounds how many blockers a net may
     rip up to fit (raised in the recovery pass). `keepout_layer` (when set) tells
-    route.py to honour the keepout polygons on that user layer."""
+    route.py to honour the keepout polygons on that user layer. `same_net_pad_clearance`
+    (when set) keeps vias off the routed nets' own SMD pads by that clearance (no
+    via-in-pad)."""
     cmd = ["python3", "route.py", str(inp), str(out), *nets,
            "--layers", *LAYERS, "--layer-costs", *LAYER_COSTS,
            "--ordering", ordering, "--max-ripup", str(max_ripup),
@@ -158,6 +212,8 @@ def run_pass(tool: Path, label: str, inp: Path, out: Path, nets: list[str],
            "--board-edge-clearance", str(BOARD_EDGE_CLEARANCE),
            "--hole-to-hole-clearance", str(HOLE_TO_HOLE),
            "--no-fix-drc-settings"]
+    if same_net_pad_clearance is not None:
+        cmd += ["--same-net-pad-clearance", str(same_net_pad_clearance)]
     if direction:
         cmd += ["--direction", direction]
     if keepout_layer:
@@ -227,9 +283,10 @@ def run_diff(tool: Path, inp: Path, out: Path, nets: list[str]) -> dict:
 
 
 def run_planes(tool: Path, inp: Path, out: Path, net: str, layers: list[str]) -> str:
-    """Pour `net` as a copper plane on BOTH layers, stitching a via from each pad
-    down to it. Run as a completion step after the single routing pass: it fills
-    the open copper and connects any GND the wide-track pass couldn't reach."""
+    """Pour `net` as a copper plane on the given `layers`, stitching a via from each
+    pad down to it. Called twice per board: B.Cu before routing (so route.py sees
+    the bottom plane) and F.Cu after, so the top plane fills around the routed
+    tracks rather than getting carved into stranded islands by them."""
     # --no-fix-drc-settings: route_planes/route.py otherwise auto-rewrite the
     # output .kicad_pro to pin DRC floors to the routing clearance (0.15) — issue
     # #160. That lowers min_hole_clearance below our baseline 0.25, so the GND
@@ -241,7 +298,7 @@ def run_planes(tool: Path, inp: Path, out: Path, net: str, layers: list[str]) ->
            "--track-width", str(TRACK_WIDTH),
            "--same-net-pad-clearance", str(GND_VIA_PAD_CLEARANCE),
            "--no-fix-drc-settings"]
-    print(f"\n=== pass: {net} plane pour (F.Cu + B.Cu) ===")
+    print(f"\n=== pass: {net} plane pour ({', '.join(layers)}) ===")
     proc = subprocess.run(cmd, cwd=tool, capture_output=True, text=True)
     if proc.returncode != 0:
         sys.stderr.write(proc.stdout[-2000:] + proc.stderr[-1000:])
@@ -303,9 +360,15 @@ def route_attempt(tool: Path, src: Path, out: Path, do_diff: bool,
         inp = out
     else:
         inp = src
-    # Do the GND pour on the bottom copper
+    # GND pour, part 1: the B.Cu plane only, BEFORE routing. The bottom plane is
+    # the primary ground; pouring it now lets route.py see it as a real obstacle /
+    # connectivity source. The F.Cu (top) pour is deferred until AFTER routing
+    # (below) — pouring top up front filled the layer the signals need, carving it
+    # into GND islands the router then stranded; pouring it last fills around the
+    # final tracks and stitches each island to B.Cu through its pad vias, with
+    # nothing routed afterward to break them.
     run_planes(tool, inp, out, "GND", ["B.Cu"])
-    snap("gnd-pour")
+    snap("gnd-pour-bottom")
 
     # Fill the poured zone NOW, before routing: route_planes only writes the zone
     # outline, so route.py would otherwise route blind to the GND copper. Filling
@@ -318,6 +381,13 @@ def route_attempt(tool: Path, src: Path, out: Path, do_diff: bool,
     add_hole_keepouts(out)
     snap("hole-keepout")
 
+    # Protect GND pads BEFORE routing: drop a clean via from each top-side GND pad
+    # to the (still-whole) B.Cu plane, so route.py routes around them and no GND
+    # pad is left stranded on a carved-off island (post-route there may be no
+    # DRC-clean spot left to repair it — e.g. ESP32-S3-MINI-1 U1.64).
+    prestitch_gnd(out)
+    snap("gnd-prestitch")
+
     # ONE whole-board pass: every signal at 0.15mm track / 0.15mm clearance,
     # with +3V3/+5V widened. A single route.py invocation means its
     # rip-up-and-retry + orphan-copper cleanup safely cover ALL nets at once
@@ -328,7 +398,8 @@ def route_attempt(tool: Path, src: Path, out: Path, do_diff: bool,
     summary = run_pass(tool, "route all (0.15mm; +3V3/+5V 0.2mm)", prep, out, route_nets,
                        TRACK_WIDTH, CLEARANCE, GRID_STEP,
                        power_nets=wide, power_widths=[POWER_WIDTH] * len(wide),
-                       ordering=ordering, direction=direction, keepout_layer=KEEPOUT_LAYER)
+                       ordering=ordering, direction=direction, keepout_layer=KEEPOUT_LAYER,
+                       same_net_pad_clearance=SIGNAL_VIA_PAD_CLEARANCE)
     snap("routed")
 
     # Recovery: if mps stranded nets (e.g. a long BOOT run on a dense MINI), retry
@@ -352,7 +423,8 @@ def route_attempt(tool: Path, src: Path, out: Path, do_diff: bool,
         s2 = run_pass(tool, "recovery (unrouted-first, original order)", prep, out2,
                       recov_nets, TRACK_WIDTH, CLEARANCE, GRID_STEP,
                       power_nets=wide, power_widths=[POWER_WIDTH] * len(wide),
-                      ordering="original", direction=direction, keepout_layer=KEEPOUT_LAYER)
+                      ordering="original", direction=direction, keepout_layer=KEEPOUT_LAYER,
+                      same_net_pad_clearance=SIGNAL_VIA_PAD_CLEARANCE)
         n2 = len(failed_nets(s2))
         if n2 < len(failed):
             shutil.copyfile(out2, out)
@@ -371,11 +443,28 @@ def route_attempt(tool: Path, src: Path, out: Path, do_diff: bool,
                    capture_output=True, text=True)
     snap("via-repair")
 
+    # GND pour, part 2: the F.Cu (top) plane, NOW that routing is done. route_planes
+    # fills the top copper around the routed tracks and stitches a via from every
+    # GND pad down to the B.Cu plane, so each top-side GND island is tied to the
+    # bottom plane. Done last, these stitch vias survive (nothing routes after).
+    top = out.parent / f"{out.stem}.top.kicad_pcb"
+    run_planes(tool, out, top, "GND", ["F.Cu"])
+    shutil.move(top, out)
+    snap("gnd-pour-top")
+
     # Re-fill the GND pour: the fill above went stale the moment route.py laid
     # B.Cu tracks through the plane, so this re-carves the copper around the
     # routed tracks (and drops empty islands). This is the authoritative fill.
     finish_gnd(out)
     snap("gnd-finish")
+
+    # Any GND pad still stranded after the via-stitch is cut off from the plane
+    # on both layers — route a real GND track to it, then re-finish so the island
+    # merges into the plane through that track.
+    if route_gnd_stragglers(tool, out):
+        snap("gnd-stragglers")
+        finish_gnd(out)
+        snap("gnd-stragglers-finish")
 
     print("\n=== connectivity ===")
     report = connectivity(tool, out)
@@ -397,18 +486,19 @@ def main():
 
     tool = find_tool(args.tool)
     safe = args.module.replace("/", "_")
-    src = REPO / "modules" / safe / f"{safe}.kicad_pcb"
+    mod_out = REPO / "out" / safe            # GENERATED board dir (see build_board.py)
+    src = mod_out / f"{safe}.kicad_pcb"
     if not src.exists():
         raise SystemExit(f"{src} not found — run build_board.py first.")
     # Route into a temp working file beside the board, then atomically move it
     # over <M>.kicad_pcb only once routing has succeeded. Keeps the original
     # intact on failure, and (being a distinct file) lets the router read the
     # bare board while it writes the routed one.
-    out = REPO / "modules" / safe / f"{safe}.routing.kicad_pcb"
+    out = mod_out / f"{safe}.routing.kicad_pcb"
     # Per-stage snapshots land here (00-built, gnd-pour, gnd-fill, routed, …) so
     # a route that comes out wrong can be inspected stage by stage. Cleared at
     # the start of each run so it always reflects the latest route.
-    debug_dir = REPO / "modules" / safe / "route_debug"
+    debug_dir = mod_out / "route_debug"
     if debug_dir.exists():
         shutil.rmtree(debug_dir)
     debug_dir.mkdir(parents=True)
