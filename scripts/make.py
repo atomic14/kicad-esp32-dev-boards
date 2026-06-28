@@ -21,6 +21,7 @@ Usage:
 """
 from __future__ import annotations
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -28,6 +29,29 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 SCRIPTS = REPO / "scripts"
 PY = [sys.executable]
+
+
+def check_library() -> str | None:
+    """Validate library.json exists AND its paths still resolve. Returns an
+    error message (with the fix) if not usable, else None. Catches both the
+    fresh-machine case and the stale-json case (KiCad upgraded out from under
+    paths recorded for an older version)."""
+    lib = REPO / "library.json"
+    fix = "run: uv run python scripts/resolve_library.py"
+    if not lib.exists():
+        return f"library.json missing — {fix}"
+    try:
+        info = json.loads(lib.read_text())
+    except (json.JSONDecodeError, OSError) as e:
+        return f"library.json unreadable ({e}) — {fix}"
+    for key in ("kicad_cli", "symbol_lib", "footprint_lib", "kicad_symbols_dir"):
+        p = info.get(key)
+        if not p or not Path(p).exists():
+            return (
+                f"library.json points to a missing path ({key}={p!r}) — likely a "
+                f"KiCad upgrade/reinstall since it was generated. {fix}"
+            )
+    return None
 
 
 def stage(title, script, *args):
@@ -47,8 +71,9 @@ def main(argv):
     ap.set_defaults(diff=True)
     args = ap.parse_args(argv)
 
-    if not (REPO / "library.json").exists():
-        print("ERROR: library.json missing — run scripts/resolve_library.py first.", file=sys.stderr)
+    lib_err = check_library()
+    if lib_err:
+        print(f"ERROR: {lib_err}", file=sys.stderr)
         return 1
 
     do_clean = args.clean or args.all

@@ -25,12 +25,15 @@ OUT = REPO / "library.json"
 
 ESPRESSIF_PKG = "com_github_espressif_kicad-libraries"
 
-# Where the PCM installs 3rd-party addons, across OSes (newest KiCad preferred).
+# Where the PCM installs 3rd-party addons, across OSes. `{v}` is the KiCad
+# major.minor version dir (e.g. "10.0") — we pin to the RUNNING kicad-cli's
+# version rather than picking the newest addon on disk, so we never mix a
+# library built for one KiCad version with another version's binary.
 HOME = Path.home()
 KICAD_DOC_GLOBS = [
-    str(HOME / "Documents/KiCad/*/3rdparty"),                       # macOS / Windows
-    str(HOME / ".local/share/kicad/*/3rdparty"),                    # Linux
-    str(HOME / ".var/app/org.kicad.KiCad/data/kicad/*/3rdparty"),   # Linux flatpak
+    str(HOME / "Documents/KiCad/{v}/3rdparty"),                       # macOS / Windows
+    str(HOME / ".local/share/kicad/{v}/3rdparty"),                    # Linux
+    str(HOME / ".var/app/org.kicad.KiCad/data/kicad/{v}/3rdparty"),   # Linux flatpak
 ]
 
 # kicad-cli is on PATH on Linux/Windows but NOT on macOS (it's in the bundle).
@@ -46,29 +49,58 @@ def _die(msg: str) -> "None":
     sys.exit(1)
 
 
-def _version_key(path: str) -> tuple:
-    """Sort key from the KiCad version dir name, e.g. .../kicad/10.0/3rdparty."""
-    m = re.search(r"[/\\](?:KiCad|kicad)[/\\]([0-9.]+)[/\\]", path)
-    return tuple(int(x) for x in m.group(1).split(".")) if m else (0,)
+def _major_minor(ver: str) -> str:
+    """'10.0.4' -> '10.0' — the version dir name the PCM uses for addons."""
+    m = re.match(r"(\d+\.\d+)", ver)
+    return m.group(1) if m else ver
 
 
-def find_3rdparty() -> Path:
+def find_3rdparty(kicad_ver: str) -> Path:
+    """Locate the Espressif addon for the RUNNING KiCad version (`kicad_ver`).
+
+    We deliberately do NOT fall back to an addon installed for an older KiCad
+    version: mixing libraries across versions silently produces broken boards.
+    If the running version lacks the addon, fail with install instructions.
+    """
     override = os.environ.get("ESPRESSIF_3RDPARTY")
     if override:
         if (Path(override) / "symbols" / ESPRESSIF_PKG).is_dir():
             return Path(override)
         _die(f"ESPRESSIF_3RDPARTY={override} has no symbols/{ESPRESSIF_PKG}")
-    matches = sorted(
-        (m for g in KICAD_DOC_GLOBS for m in glob.glob(g)),
-        key=_version_key, reverse=True,
+
+    mm = _major_minor(kicad_ver)
+    bases = [Path(p) for g in KICAD_DOC_GLOBS for p in glob.glob(g.format(v=mm))]
+    for base in bases:
+        if (base / "symbols" / ESPRESSIF_PKG).is_dir():
+            return base
+
+    # Help the user: did they install it for some OTHER KiCad version?
+    other = sorted(
+        re.search(r"[/\\](?:KiCad|kicad)[/\\]([0-9.]+)[/\\]", p).group(1)
+        for g in KICAD_DOC_GLOBS
+        for p in glob.glob(g.format(v="*"))
+        if _major_minor(  # the version dir of this match
+            re.search(r"[/\\](?:KiCad|kicad)[/\\]([0-9.]+)[/\\]", p).group(1)
+        ) != mm
+        and (Path(p) / "symbols" / ESPRESSIF_PKG).is_dir()
     )
-    for base in matches:
-        if (Path(base) / "symbols" / ESPRESSIF_PKG).is_dir():
-            return Path(base)
+    hint = (
+        f"\n\nNOTE: the addon IS installed for other KiCad version(s) on this "
+        f"machine ({', '.join(sorted(set(other)))}), but NOT for {mm}. "
+        "Mixing a library from one KiCad version with another's binary is "
+        "unsupported, so this is treated as an error."
+        if other else ""
+    )
     _die(
-        "Could not find the PCM_Espressif library in any known location "
-        f"({', '.join(KICAD_DOC_GLOBS)}). Install the Espressif KiCad addon via "
-        "KiCad's Plugin & Content Manager, or set ESPRESSIF_3RDPARTY."
+        f"KiCad {mm} is the running version (kicad-cli {kicad_ver}), but its "
+        f"Espressif library addon is not installed.\n\n"
+        f"Install it:\n"
+        f"  1. Open KiCad {mm}\n"
+        f"  2. Plugin and Content Manager -> search \"Espressif\"\n"
+        f"  3. Install the \"Espressif KiCad Libraries\" addon -> Apply\n"
+        f"  4. Re-run: uv run python scripts/resolve_library.py\n\n"
+        f"Or point ESPRESSIF_3RDPARTY at a 3rdparty dir that contains "
+        f"symbols/{ESPRESSIF_PKG}." + hint
     )
 
 
@@ -105,14 +137,6 @@ def find_kicad_symbols(cli: str) -> Path:
 
 
 def main() -> None:
-    base = find_3rdparty()
-    sym = base / "symbols" / ESPRESSIF_PKG / "Espressif.kicad_sym"
-    fp = base / "footprints" / ESPRESSIF_PKG / "Espressif.pretty"
-    d3 = base / "3dmodels" / ESPRESSIF_PKG / "espressif.3dshapes"
-    for label, p in [("symbol library", sym), ("footprint library", fp)]:
-        if not p.exists():
-            _die(f"Espressif {label} missing at expected path: {p}")
-
     cli = find_kicad_cli()
     try:
         ver = subprocess.run(
@@ -120,6 +144,14 @@ def main() -> None:
         ).stdout.strip()
     except subprocess.CalledProcessError as e:  # pragma: no cover
         _die(f"kicad-cli version failed: {e}")
+
+    base = find_3rdparty(ver)
+    sym = base / "symbols" / ESPRESSIF_PKG / "Espressif.kicad_sym"
+    fp = base / "footprints" / ESPRESSIF_PKG / "Espressif.pretty"
+    d3 = base / "3dmodels" / ESPRESSIF_PKG / "espressif.3dshapes"
+    for label, p in [("symbol library", sym), ("footprint library", fp)]:
+        if not p.exists():
+            _die(f"Espressif {label} missing at expected path: {p}")
 
     info = {
         "kicad_version": ver,
