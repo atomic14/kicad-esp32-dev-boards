@@ -90,7 +90,7 @@ docs/AGENT_END_TO_END.md  agent spec: curate every board.yaml, then pilot-verify
 | `resolve_library.py` | Find KiCad libs + `kicad-cli` → `library.json` | ✅ run once/machine |
 | `build_all.py [--clean]` | extract → build → validate every curated module | ✅ |
 | `route_all.py [--no-diff]` | autoroute every board (diff-pair with single-ended fallback; writes back in place) + DRC | ✅ |
-| `render_boards.py` | 3D montages of every board → `build/` | ✅ |
+| `render_boards.py` | 3D montages of every board → `build/` (top, top-bare/no-components, bottom) | ✅ |
 | `fab_all.py` | Gerber + Excellon drill zip per board → `out/<M>/<M>-fab.zip` | ✅ |
 | `clean.py` | remove generated output for a fresh run — just `rm -rf out build`; the curated `modules/` source is never touched | ✅ |
 

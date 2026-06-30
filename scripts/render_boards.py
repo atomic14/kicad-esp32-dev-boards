@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Render top + bottom 3D views of every generated board into two 6x2 montages.
+"""Render 3D views of every generated board into 6x2 montages.
 
-Produces build/montage_top.png and build/montage_bottom.png (and the per-board
-build/<MODULE>/render_{top,bottom}.png it stitches them from).
+Produces three montages in build/ (+ the per-board build/<MODULE>/render_*.png
+they're stitched from):
+  montage_top.png       top, with components (the assembled board)
+  montage_top_bare.png  top, NO components — the bare PCB artwork (copper/silk,
+                        incl. the under-module silk marker), via a render of a
+                        model-stripped copy of the board
+  montage_bottom.png    bottom, with components
 
 Uses kicad-cli (path from library.json) for the 3D renders and ImageMagick
 (`magick`) for the montage. The pin-header STEP models live next to KiCad's
@@ -14,7 +19,7 @@ headless renders (it fills when opened in KiCad), so the montage shows the
 tracks/vias but not the GND fill.
 
 Usage:
-  render_boards.py             # every board -> two montages
+  render_boards.py             # every board -> three montages
 """
 from __future__ import annotations
 import argparse
@@ -25,9 +30,21 @@ import subprocess
 import sys
 from pathlib import Path
 
+import sexpdata
+from sexpdata import Symbol
+
 REPO = Path(__file__).resolve().parent.parent
 BUILD = REPO / "build"
 TILE = "6x2"  # 12 boards -> 6 columns x 2 rows
+
+# Montages to produce: (side, with_components, name). The bare-board view strips
+# the 3D component models so the PCB artwork (copper/silk, incl. the under-module
+# silk marker) is visible — what the board looks like before assembly.
+VIEWS = [
+    ("top", True, "top"),
+    ("top", False, "top_bare"),
+    ("bottom", True, "bottom"),
+]
 
 # Common font locations (macOS / Linux) for the montage labels; labels are
 # dropped if none is found rather than failing the whole render.
@@ -52,6 +69,23 @@ def boards():
         if pcb.exists():
             out.append((d.name, pcb))
     return out
+
+
+def strip_models(pcb_path: Path, dest: Path) -> Path:
+    """Write a copy of the board with every (model ...) node removed, so a render
+    of it shows the bare PCB (copper/silk/mask/pads) with no 3D component bodies.
+    Round-tripping through sexpdata is fine here — it's a throwaway render copy."""
+    tree = sexpdata.loads(pcb_path.read_text())
+
+    def strip(node):
+        if not isinstance(node, list):
+            return node
+        return [strip(c) for c in node
+                if not (isinstance(c, list) and c and isinstance(c[0], Symbol)
+                        and c[0].value() == "model")]
+
+    dest.write_text(sexpdata.dumps(strip(tree)))
+    return dest
 
 
 def render(cli, model_dir, pcb, side, out):
@@ -99,16 +133,22 @@ def main():
         return 1
     print(f"Rendering {len(bds)} boards")
 
-    for side in ("top", "bottom"):
+    for side, with_comps, tag in VIEWS:
         imgs, labels = [], []
         for name, pcb in bds:
-            out = BUILD / name / f"render_{side}.png"
+            src, tmp = pcb, None
+            if not with_comps:
+                tmp = pcb.parent / f"{name}.nocomp.kicad_pcb"
+                src = strip_models(pcb, tmp)
+            out = BUILD / name / f"render_{tag}.png"
             out.parent.mkdir(parents=True, exist_ok=True)
-            print(f"  render {side:6} {name}")
-            render(cli, model_dir, pcb, side, out)
+            print(f"  render {tag:8} {name}")
+            render(cli, model_dir, src, side, out)
+            if tmp:
+                tmp.unlink()
             imgs.append(out)
             labels.append(name)
-        dest = BUILD / f"montage_{side}.png"
+        dest = BUILD / f"montage_{tag}.png"
         montage(imgs, labels, dest, find_font())
         print(f"Wrote {dest}  ({len(imgs)} boards, {TILE})")
     return 0
