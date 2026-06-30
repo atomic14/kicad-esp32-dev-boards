@@ -47,7 +47,8 @@ uv run python scripts/make.py             # build + route every board (THE comma
 uv run python scripts/make.py            # build + route all modules
 uv run python scripts/make.py --clean    # wipe prior output first
 uv run python scripts/make.py --render    # also render the 3D montages
-uv run python scripts/make.py --all       # clean + build + route + render
+uv run python scripts/make.py --fab       # also export fab zips (Gerbers + drill)
+uv run python scripts/make.py --all       # clean + build + route + render + fab
 uv run python scripts/make.py --no-route  # build only
 ```
 
@@ -74,6 +75,7 @@ out/<MODULE>/            GENERATED board (git-ignored, disposable: rm -rf out)
   <MODULE>.kicad_sch/pro/pcb   the board — open <MODULE>.kicad_pro in KiCad
   fp-lib-table + *.pretty/ + asset dirs   copied from baseline
   route_debug/          per-stage routing snapshots for inspection
+  fab/ + <MODULE>-fab.zip   Gerbers + Excellon drill; the .zip is fab-ready
 build/<MODULE>/          GENERATED validation artifacts (git-ignored, disposable)
 docs/AGENT_END_TO_END.md  agent spec: curate every board.yaml, then pilot-verify one module
 ```
@@ -84,12 +86,13 @@ docs/AGENT_END_TO_END.md  agent spec: curate every board.yaml, then pilot-verify
 
 | Script | Role | Deterministic? |
 |---|---|---|
-| `make.py` | **THE command** — chains clean → build → route → render (flags toggle stages) | ✅ |
+| `make.py` | **THE command** — chains clean → build → route → render → fab (flags toggle stages) | ✅ |
 | `resolve_library.py` | Find KiCad libs + `kicad-cli` → `library.json` | ✅ run once/machine |
 | `build_all.py [--clean]` | extract → build → validate every curated module | ✅ |
 | `route_all.py [--no-diff]` | autoroute every board (diff-pair with single-ended fallback; writes back in place) + DRC | ✅ |
 | `render_boards.py` | 3D montages of every board → `build/` | ✅ |
-| `clean.py` | remove generated output for a fresh run (keeps `board.yaml`/`pinout.json`/`library.json`; leaves any non-pipeline files, e.g. manual `*_routed.*`, alone) | ✅ |
+| `fab_all.py` | Gerber + Excellon drill zip per board → `out/<M>/<M>-fab.zip` | ✅ |
+| `clean.py` | remove generated output for a fresh run — just `rm -rf out build`; the curated `modules/` source is never touched | ✅ |
 
 **Primitives** (`scripts/lib/`) — operate on one module; called by the orchestrators, rarely run directly:
 
@@ -99,8 +102,9 @@ docs/AGENT_END_TO_END.md  agent spec: curate every board.yaml, then pilot-verify
 | `footprint_edges.py "<MODULE>"` | Physical pin edges from the footprint |
 | `build_board.py "<MODULE>"` | **The generator**: module + perimeter-split headers + labels + footprints + project files (copies the baseline's `fp-lib-table` and all asset dirs — `*.pretty` footprint libs, `3d-models/`, etc.) |
 | `route_board.py "<MODULE>"` | Autoroute one board (USB-C fine neck, signals, GND pour) |
-| `place_pcb.py` / `gnd_finish.py` | PCB placement + GND-pour fill/stitch helpers |
+| `place_pcb.py` / `gnd_finish.py` / `gnd_prestitch.py` | PCB placement + GND-pour fill/stitch helpers (prestitch protects GND pads before routing) |
 | `validate.py <sch>` | ERC delta vs baseline + PDF render |
+| `fab_export.py "<MODULE>"` | Gerbers (`--check-zones` refills pours) + Excellon drill → zipped fab package |
 
 **~95% of the work is fully scripted.** The only step needing human/agent
 judgement is curating each module's `board.yaml`.
@@ -157,6 +161,21 @@ New *warnings* are expected and fine (notably the `pin_to_pin` from connecting
 `GPIO0` to the boot button — the EasyEDA button symbol uses `Unspecified` pin
 types). The baseline itself has ~58 pre-existing violations, so the bar is the
 *delta*, not zero. Always also eyeball the PDF render.
+
+## Fabrication
+
+`make.py --fab` (or `fab_all.py`, or `fab_export.py "<M>"` for one) exports a
+fab-ready package per board to `out/<M>/<M>-fab.zip` (loose files also in
+`out/<M>/fab/`). The zip holds the standard 2-layer Gerber set (`F.Cu B.Cu`,
+paste, silkscreen, mask, `Edge.Cuts`) plus an Excellon drill file, drill map,
+and `.gbrjob` — flat-zipped, ready to upload to JLCPCB / PCBWay / most houses.
+
+Key detail: the Gerber export runs with `--check-zones`, which **refills the
+copper pours during export**, so the GND plane is always present in the copper
+Gerbers even though headless tools save boards with empty fills — otherwise
+you'd ship a board with no ground plane. Coordinates use an absolute origin for
+both Gerbers and drill so they align. If your fab wants PTH/NPTH drills split,
+add `--excellon-separate-th` in `fab_export.py` (currently combined).
 
 ## Handoff notes
 

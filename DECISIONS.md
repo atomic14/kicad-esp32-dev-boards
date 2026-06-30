@@ -98,15 +98,17 @@ kicad_automation/
 │       ├── build_board.py      # THE generator: baseline + module + headers + labels -> .kicad_sch
 │       ├── place_pcb.py        # clone baseline PCB, place module + headers, assign nets
 │       ├── route_board.py      # autoroute one board via KiCadRoutingTools (sibling repo)
-│       ├── fill_zones.py / gnd_finish.py / hole_keepouts.py / via_repair.py  # PCB finishing
-│       └── validate.py         # ERC delta vs baseline + PDF render
+│       ├── fill_zones.py / gnd_finish.py / gnd_prestitch.py / hole_keepouts.py / via_repair.py  # PCB finishing
+│       ├── validate.py         # ERC delta vs baseline + PDF render
+│       └── fab_export.py       # Gerbers + Excellon drill -> out/<m>/<m>-fab.zip
 ├── modules/<module>/       # CURATED SOURCE only (committed)
 │   ├── pinout.json         # AUTO — ground truth from the symbol, never hand-edited
 │   └── board.yaml          # CURATED — the only hand-authored file (schema below)
 ├── out/<module>/           # GENERATED board — git-ignored, disposable (rm -rf out)
 │   ├── <module>.kicad_sch/.kicad_pcb/.kicad_pro  # the generated, routed board
 │   ├── fp-lib-table + *.pretty/ + asset dirs     # copied from baseline
-│   └── route_debug/        # per-stage routing snapshots for inspection
+│   ├── route_debug/        # per-stage routing snapshots for inspection
+│   └── fab/ + <module>-fab.zip   # Gerbers + Excellon drill; .zip is fab-ready
 └── build/<board>/          # validation artifacts (erc.json, *.pdf) — disposable
 ```
 

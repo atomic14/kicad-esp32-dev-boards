@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One front door for the whole pipeline: clean -> build -> route -> render.
+"""One front door for the whole pipeline: clean -> build -> route -> render -> fab.
 
 This is THE command to run. It chains the per-stage orchestrators (each of
 which still works standalone):
@@ -8,6 +8,7 @@ which still works standalone):
   build_all.py      schematic + PCB + ERC, every module (default ON)
   route_all.py      autoroute + DRC, every board        (default ON)
   render_boards.py  3D montages into build/             (opt-in: --render)
+  fab_all.py        Gerber + drill zips into out/        (opt-in: --fab)
 
 Run resolve_library.py once per machine first (creates library.json).
 
@@ -15,7 +16,8 @@ Usage:
   make.py                 # build + route every curated module
   make.py --clean         # wipe prior output first
   make.py --render        # also render the 3D montages at the end
-  make.py --all           # clean + build + route + render
+  make.py --fab           # also export fab zips (Gerbers + drill) per module
+  make.py --all           # clean + build + route + render + fab
   make.py --no-route      # build only (stop before routing)
   make.py --diff          # forward diff-pair routing to route_all
 """
@@ -65,7 +67,8 @@ def main(argv):
     ap.add_argument("--clean", action="store_true", help="wipe prior output first")
     ap.add_argument("--no-route", action="store_true", help="build only; stop before routing")
     ap.add_argument("--render", action="store_true", help="also render 3D montages at the end")
-    ap.add_argument("--all", action="store_true", help="clean + build + route + render")
+    ap.add_argument("--fab", action="store_true", help="also export fab zips (Gerbers + drill)")
+    ap.add_argument("--all", action="store_true", help="clean + build + route + render + fab")
     ap.add_argument("--no-diff", dest="diff", action="store_false",
                     help="route D+/D- single-ended (diff-pair is the default)")
     ap.set_defaults(diff=True)
@@ -79,6 +82,7 @@ def main(argv):
     do_clean = args.clean or args.all
     do_route = not args.no_route or args.all
     do_render = args.render or args.all
+    do_fab = args.fab or args.all
 
     if do_clean:
         if stage("CLEAN", "clean.py"):
@@ -102,6 +106,10 @@ def main(argv):
 
     if do_render:
         if stage("RENDER", "render_boards.py"):
+            return 1
+
+    if do_fab:
+        if stage("FAB EXPORT (Gerbers + drill)", "fab_all.py"):
             return 1
 
     return rc

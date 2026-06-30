@@ -22,8 +22,8 @@ uv run python scripts/resolve_library.py   # detect KiCad/libs -> library.json (
 uv run python scripts/make.py              # THE command: build + route every module
 ```
 
-`make.py` chains clean → build → route → render:
-- `make.py --clean` wipe prior output first · `--render` also 3D montages · `--all` all four stages · `--no-route` build only · `--no-diff` route D+/D- single-ended.
+`make.py` chains clean → build → route → render → fab:
+- `make.py --clean` wipe prior output first · `--render` also 3D montages · `--fab` also Gerber+drill zips · `--all` all stages · `--no-route` build only · `--no-diff` route D+/D- single-ended.
 
 Single module (the `scripts/lib/` primitives, rarely run directly):
 ```bash
@@ -31,6 +31,7 @@ uv run python scripts/lib/extract_pinout.py "<MODULE>"   # symbol -> modules/<m>
 uv run python scripts/lib/build_board.py "<MODULE>"      # the generator -> .kicad_sch/pro/pcb
 uv run python scripts/lib/route_board.py "<MODULE>"      # autoroute one board
 uv run python scripts/lib/validate.py out/<m>/<m>.kicad_sch       # ERC delta + PDF render
+uv run python scripts/lib/fab_export.py "<MODULE>"       # Gerbers + drill -> out/<m>/<m>-fab.zip
 ```
 
 There is no test suite. Validation is the ERC/render gate below; `<MODULE>` is a
