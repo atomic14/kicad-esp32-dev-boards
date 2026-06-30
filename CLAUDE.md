@@ -60,7 +60,10 @@ Per-module data flow:
 - `build/<M>/` — GENERATED validation artifacts (ERC JSON, PDF). Disposable.
 
 `build_board.py` derives most wiring automatically (power, GND, EN, USB→D±,
-GPIO→`GPIOxx` net labels) and places the module + perimeter-split headers.
+GPIO→`GPIOxx` net labels) and places the module + perimeter-split headers. It
+also drops a hidden F-silk order-number marker (`SILK_MARKER_TEXT`, default
+`"WayWayWay"`) in the clear band under the module, clearance-checked off every
+pad — see `place_pcb.silk_marker`.
 
 ### Toolchain (decided in DECISIONS.md — don't substitute)
 - Python **only** via `uv run python`. Env has kicad-skip, sexpdata, pyyaml, numpy, scipy, shapely.

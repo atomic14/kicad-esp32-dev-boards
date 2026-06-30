@@ -54,6 +54,18 @@ EDGE_WIDTH = 0.1        # Edge.Cuts line width
 LABEL_FONT = 1.0        # pin-label silk text size
 LABEL_OFFSET = HDR_CRT_HALF + 0.3  # inward offset from a pad to its label anchor
 
+# Silk marker placed UNDER the module (hidden once it's soldered down) — gives
+# the board house a spot for its order number and keeps it off the visible silk.
+SILK_MARKER_TEXT = "WayWayWay"
+SILK_MARKER_MAX_H = 1.0     # text size (mm); shrunk to fit a tight module
+SILK_MARKER_MIN_H = 0.6
+SILK_COPPER_CLEAR = 0.25    # keep the text this far off any pad copper
+# KiCad's rendered text bounding box, measured: height ~1.70x the nominal size,
+# width ~0.97x size per char. We use these (rounded up) to place + clearance-check
+# the REAL extent, not the nominal size — otherwise the box reads ~1.7x too short.
+SILK_BBOX_H = 1.72
+SILK_BBOX_W_PER_CHAR = 1.0
+
 
 # ---- sexp helpers ----------------------------------------------------------
 
@@ -307,6 +319,69 @@ def gr_rect(left, top, right, bottom):
         f'(layer "Edge.Cuts") (uuid "{newid()}"))')
 
 
+def _pad_rects(fp_node):
+    """Global (x0,x1,y0,y1) copper bbox of every pad in a placed footprint,
+    accounting for footprint + per-pad rotation (same transform as
+    tht_copper_bottom, kept for ALL pads and tracking x too)."""
+    at = child(fp_node, "at")
+    ox, oy = num(at[1]), num(at[2])
+    fth = math.radians(num(at[3]) if len(at) > 3 else 0.0)
+    rects = []
+    for p in collect(fp_node, "pad", []):
+        pat, size = child(p, "at"), child(p, "size")
+        if not pat or not size:
+            continue
+        px, py = num(pat[1]), num(pat[2])
+        pth = math.radians(num(pat[3]) if len(pat) > 3 else 0.0)
+        hw, hh = num(size[1]) / 2.0, num(size[2]) / 2.0
+        xs, ys = [], []
+        for cx, cy in ((hw, hh), (-hw, hh), (hw, -hh), (-hw, -hh)):
+            rx = cx * math.cos(pth) - cy * math.sin(pth) + px
+            ry = cx * math.sin(pth) + cy * math.cos(pth) + py
+            xs.append(ox + rx * math.cos(fth) - ry * math.sin(fth))
+            ys.append(oy + rx * math.sin(fth) + ry * math.cos(fth))
+        rects.append((min(xs), max(xs), min(ys), max(ys)))
+    return rects
+
+
+def silk_marker(fp_node, text=SILK_MARKER_TEXT):
+    """A centred F-silk text node placed in the clear band just above the
+    module's bottom pin row — under the body (hidden once soldered), never on
+    exposed copper. Returns the node, or None if no clear spot is found.
+
+    The band is bounded below by the bottom pin row (the globally lowest pads)
+    and above by whatever copper sits over it (the exposed thermal pad). The
+    text is placed low in that band ("just above the lower pins"), centred on
+    the module, then its bbox is checked against EVERY pad: the height is shrunk
+    until the text (plus a silk-to-copper clearance) clears all copper."""
+    rects = _pad_rects(fp_node)
+    if not rects:
+        return None
+    cx = (min(r[0] for r in rects) + max(r[1] for r in rects)) / 2.0
+    gmax = max(r[3] for r in rects)                       # lowest copper = bottom pin row
+    bottom_row_top = min(r[2] for r in rects if r[3] > gmax - 0.6)
+    clr = SILK_COPPER_CLEAR
+
+    def clears(box):
+        return not any(box[0] < r[1] and box[1] > r[0]
+                       and box[2] < r[3] and box[3] > r[2] for r in rects)
+
+    h = SILK_MARKER_MAX_H
+    while h >= SILK_MARKER_MIN_H - 1e-9:
+        bw = len(text) * h * SILK_BBOX_W_PER_CHAR   # real rendered width/height
+        bh = h * SILK_BBOX_H
+        yc = bottom_row_top - clr - bh / 2.0        # real text bottom sits clr above the pins
+        box = (cx - bw / 2 - clr, cx + bw / 2 + clr, yc - bh / 2 - clr, yc + bh / 2 + clr)
+        if clears(box):
+            t = round(h * 0.15, 3)                  # ~15% stroke, scales with size
+            return parse(
+                f'(gr_text "{text}" (at {round(cx,4)} {round(yc,4)} 0) '
+                f'(layer "F.SilkS") (uuid "{newid()}") '
+                f'(effects (font (size {round(h,3)} {round(h,3)}) (thickness {t}))))')
+        h -= 0.1
+    return None
+
+
 def pin_label(text, x, y, justify):
     """A bottom-silk (B.SilkS) net-name label for a header pin. `justify` is
     'left'/'right' for the inward growth direction; 'mirror' makes it read
@@ -367,9 +442,17 @@ def build_pcb(pcb_path: Path, module: str, fp_path: Path, fp_libid: str,
     new_nodes = []
 
     # module
-    new_nodes.append(place_footprint(
+    mod_node = place_footprint(
         fp_path, fp_libid, "U1", module, r(mx), r(my), 0,
-        module_pad_nets, module_uuid, sheetfile))
+        module_pad_nets, module_uuid, sheetfile)
+    new_nodes.append(mod_node)
+
+    # silk order-number marker, centred in the clear band under the module
+    marker = silk_marker(mod_node)
+    if marker is not None:
+        new_nodes.append(marker)
+    else:
+        print(f"  note: no clear spot under {module} for the silk marker — skipped")
 
     # headers + bottom-silk pin labels (net name beside each pin, growing
     # inward toward the board centre — the outer side is flush with the edge)
