@@ -400,7 +400,10 @@ def git_revision() -> str:
             ["git", "describe", "--tags", "--always", "--dirty"],
             cwd=REPO, capture_output=True, text=True, check=True,
         ).stdout.strip()
-    except (OSError, subprocess.CalledProcessError):
+    except (OSError, subprocess.CalledProcessError) as e:
+        err = (getattr(e, "stderr", "") or str(e)).strip()
+        print(f"  warning: git describe failed — board identifier will carry "
+              f"no revision ({err})")
         return ""
 
 

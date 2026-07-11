@@ -100,6 +100,9 @@ jobs:
           # zone filling / GND stitching run pcbnew scripts with the system
           # python3 next to kicad-cli — fail fast if pcbnew is missing there
           /usr/bin/python3 -c "import pcbnew; print('pcbnew', pcbnew.GetBuildVersion())"
+          # canary: the back-silk identifier stamps `git describe` from a
+          # python subprocess — show exactly what that sees
+          uv run python -c "import subprocess; r = subprocess.run(['git','describe','--tags','--always','--dirty'], capture_output=True, text=True); print('git describe rc:', r.returncode, 'out:', r.stdout.strip(), 'err:', r.stderr.strip())"
 
       - name: Resolve KiCad + libraries
         run: xvfb-run -a uv run python scripts/resolve_library.py
