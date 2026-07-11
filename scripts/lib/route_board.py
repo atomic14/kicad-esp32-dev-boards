@@ -104,14 +104,20 @@ def board_nets(pcb: Path) -> set[str]:
 
 
 def kicad_python() -> str:
-    """KiCad's bundled python (has pcbnew, for zone filling). Derived from the
-    kicad-cli path in library.json; falls back to `python3`."""
+    """A python that can import pcbnew (for zone filling). macOS: KiCad's
+    bundled framework python. Linux: the system python3 next to kicad-cli
+    (distro KiCad installs pcbnew into dist-packages). The bare "python3"
+    fallback is a last resort — under `uv run` it resolves to the VENV python,
+    which has no pcbnew, so prefer the absolute candidates."""
     lib = REPO / "library.json"
     if lib.exists():
         cli = Path(json.loads(lib.read_text())["kicad_cli"])
-        cand = cli.parents[1] / "Frameworks/Python.framework/Versions/Current/bin/python3"
-        if cand.exists():
-            return str(cand)
+        for cand in (
+            cli.parents[1] / "Frameworks/Python.framework/Versions/Current/bin/python3",
+            cli.parent / "python3",  # /usr/bin/kicad-cli -> /usr/bin/python3
+        ):
+            if cand.exists():
+                return str(cand)
     return "python3"
 
 def fill_zones(out):

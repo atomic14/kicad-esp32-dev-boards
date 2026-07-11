@@ -97,6 +97,9 @@ jobs:
           [ -f "$cfg/sym-lib-table" ] || echo "(sym_lib_table)" > "$cfg/sym-lib-table"
           [ -f "$cfg/fp-lib-table" ] || echo "(fp_lib_table)" > "$cfg/fp-lib-table"
           kicad-cli version
+          # zone filling / GND stitching run pcbnew scripts with the system
+          # python3 next to kicad-cli — fail fast if pcbnew is missing there
+          /usr/bin/python3 -c "import pcbnew; print('pcbnew', pcbnew.GetBuildVersion())"
 
       - name: Resolve KiCad + libraries
         run: xvfb-run -a uv run python scripts/resolve_library.py
