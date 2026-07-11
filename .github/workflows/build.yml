@@ -45,7 +45,8 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends \
             git imagemagick xvfb fonts-dejavu-core unzip zip curl ca-certificates \
-            python3-numpy python3-scipy python3-shapely
+            python3-numpy python3-scipy python3-shapely \
+            build-essential python3-dev # cargo needs cc; pyo3 needs Python headers
 
       - uses: actions/checkout@v4
         with:
