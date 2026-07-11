@@ -113,9 +113,11 @@ jobs:
           done
 
       - uses: actions/upload-artifact@v4
+        if: '!cancelled()' # keep boards inspectable when a stage fails
         with:
           name: boards
           path: |
+            out/*/*.kicad_pcb
             out/*/*-fab.zip
             out/*-project.zip
             build/montage_*.png
