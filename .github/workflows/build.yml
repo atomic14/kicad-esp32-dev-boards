@@ -62,22 +62,20 @@ jobs:
       - name: Restore Python env
         run: uv sync
 
-      - name: DEBUG kicad-cli teardown crash (temporary)
+      - name: Seed KiCad global library tables
+        # kicad-cli 10 scans the PCM 3rdparty dir at startup
+        # (PCM_LIB_TRAVERSER in LoadGlobalTables) and SEGFAULTS if the global
+        # sym/fp library tables don't exist yet — true on any HOME where the
+        # KiCad GUI has never run. Seed minimal empty tables, then canary.
         run: |
-          set +e
-          apt-get install -y --no-install-recommends gdb dbus dbus-x11 >/dev/null 2>&1
-          echo "== plain ==";         kicad-cli version;                                echo "exit=$?"
-          echo "== xvfb ==";          xvfb-run -a kicad-cli version;                    echo "exit=$?"
-          echo "== xdg ==";           mkdir -p /tmp/xdg; chmod 700 /tmp/xdg; XDG_RUNTIME_DIR=/tmp/xdg xvfb-run -a kicad-cli version; echo "exit=$?"
-          echo "== dbus ==";          xvfb-run -a dbus-run-session -- kicad-cli version; echo "exit=$?"
-          echo "== fresh HOME ==";    mkdir -p /tmp/h; HOME=/tmp/h kicad-cli version;   echo "exit=$?"
-          echo "== as kicad user =="; su kicad -c "kicad-cli version";                  echo "exit=$?"
-          echo "== gdb backtrace =="
-          xvfb-run -a gdb -batch -ex run -ex bt --args kicad-cli version 2>&1 | tail -25
-          true
+          ver="$(kicad-cli version 2>/dev/null | grep -oE '^[0-9]+\.[0-9]+' || true)"
+          cfg="$HOME/.config/kicad/${ver:-10.0}"
+          mkdir -p "$cfg"
+          [ -f "$cfg/sym-lib-table" ] || echo "(sym_lib_table)" > "$cfg/sym-lib-table"
+          [ -f "$cfg/fp-lib-table" ] || echo "(fp_lib_table)" > "$cfg/fp-lib-table"
+          kicad-cli version
 
       - name: Resolve KiCad + libraries
-        # xvfb: kicad-cli segfaults with no display, even for `version`
         run: xvfb-run -a uv run python scripts/resolve_library.py
 
       - name: Build + route + render + fab (all boards)
