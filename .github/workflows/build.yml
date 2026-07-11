@@ -57,7 +57,8 @@ jobs:
         run: uv sync
 
       - name: Resolve KiCad + libraries
-        run: uv run python scripts/resolve_library.py
+        # xvfb: kicad-cli segfaults with no display, even for `version`
+        run: xvfb-run -a uv run python scripts/resolve_library.py
 
       - name: Build + route + render + fab (all boards)
         run: xvfb-run -a uv run python scripts/make.py --all
