@@ -34,6 +34,7 @@ from __future__ import annotations
 import itertools
 import json
 import math
+import subprocess
 import uuid as uuidlib
 from pathlib import Path
 
@@ -65,6 +66,13 @@ SILK_COPPER_CLEAR = 0.25    # keep the text this far off any pad copper
 # the REAL extent, not the nominal size — otherwise the box reads ~1.7x too short.
 SILK_BBOX_H = 1.72
 SILK_BBOX_W_PER_CHAR = 1.0
+
+# Back-silk board identifier: "<module> <git describe>", vertical, centred on
+# the board. Sized to fit between the top/bottom edges; if even the minimum
+# size can't fit the full string, the revision is dropped before the name is.
+BOARD_ID_MAX_H = 1.5
+BOARD_ID_MIN_H = 0.8        # readable-silk floor at typical fab capabilities
+BOARD_ID_EDGE_MARGIN = 2.0  # keep-back from the top/bottom board edges
 
 
 # ---- sexp helpers ----------------------------------------------------------
@@ -382,6 +390,48 @@ def silk_marker(fp_node, text=SILK_MARKER_TEXT):
     return None
 
 
+def git_revision() -> str:
+    """`git describe --tags --always --dirty` of the repo: the tag when on one
+    (v1.0), tag-distance-hash between tags (v1.0-3-gabc1234), bare short hash
+    before any tag exists, `-dirty` appended on uncommitted changes. Empty
+    string when git is unavailable (the identifier degrades to the name)."""
+    try:
+        return subprocess.run(
+            ["git", "describe", "--tags", "--always", "--dirty"],
+            cwd=REPO, capture_output=True, text=True, check=True,
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return ""
+
+
+def board_id_text(module: str, left: float, top: float, right: float,
+                  bottom: float):
+    """The back-silk board identifier: "<module> <revision>", vertical
+    (reading bottom-to-top), centred on the board both ways, mirrored so it
+    reads correctly looking at the bottom of the board. Sized to fit the board
+    height; drops the revision (then gives up) if it can't fit at minimum size.
+
+    The centre strip is safe by construction: the headers and their pin labels
+    live near the left/right edges (>= 4 mm clear of centre on the narrowest
+    board), and routing/vias under the mask don't conflict with silk."""
+    rev = git_revision()
+    avail = (bottom - top) - 2 * BOARD_ID_EDGE_MARGIN
+    candidates = [f"{module} {rev}"] if rev else []
+    candidates.append(module)
+    for text in candidates:
+        h = min(BOARD_ID_MAX_H, avail / (len(text) * SILK_BBOX_W_PER_CHAR))
+        if h < BOARD_ID_MIN_H - 1e-9:
+            continue
+        cx, cy = (left + right) / 2.0, (top + bottom) / 2.0
+        t = round(max(h * 0.15, 0.12), 3)
+        return parse(
+            f'(gr_text "{text}" (at {round(cx,4)} {round(cy,4)} 90) '
+            f'(layer "B.SilkS") (uuid "{newid()}") '
+            f'(effects (font (size {round(h,3)} {round(h,3)}) (thickness {t})) '
+            f'(justify mirror)))')
+    return None
+
+
 def pin_label(text, x, y, justify):
     """A bottom-silk (B.SilkS) net-name label for a header pin. `justify` is
     'left'/'right' for the inward growth direction; 'mirror' makes it read
@@ -477,6 +527,13 @@ def build_pcb(pcb_path: Path, module: str, fp_path: Path, fp_libid: str,
 
     # board outline
     new_nodes.append(gr_rect(r(board_left), r(board_top), r(board_right), r(board_bottom)))
+
+    # back-silk board identifier, vertical down the board centre
+    ident = board_id_text(module, board_left, board_top, board_right, board_bottom)
+    if ident is not None:
+        new_nodes.append(ident)
+    else:
+        print(f"  note: board too short for the {module} back-silk identifier — skipped")
 
     # insert before the final ")" of the (kicad_pcb ...) node
     text = pcb_path.read_text().rstrip()

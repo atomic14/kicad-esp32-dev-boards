@@ -63,7 +63,11 @@ Per-module data flow:
 GPIO→`GPIOxx` net labels) and places the module + perimeter-split headers. It
 also drops a hidden F-silk order-number marker (`SILK_MARKER_TEXT`, default
 `"WayWayWay"`) in the clear band under the module, clearance-checked off every
-pad — see `place_pcb.silk_marker`.
+pad — see `place_pcb.silk_marker` — and a vertical B-silk board identifier
+(`"<module> <git describe --tags --always --dirty>"`) centred on the back, so
+every physical board names its module + the exact repo revision that generated
+it (tag the repo to get a clean rev number on the silk) — see
+`place_pcb.board_id_text`.
 
 ### Toolchain (decided in DECISIONS.md — don't substitute)
 - Python **only** via `uv run python`. Env has kicad-skip, sexpdata, pyyaml, numpy, scipy, shapely.

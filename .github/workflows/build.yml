@@ -1,0 +1,89 @@
+# Build every board in CI: KiCad 10 from the official PPA, the Espressif PCM
+# addon unpacked headlessly into the layout resolve_library.py expects, then
+# the full make.py pipeline (build -> route -> render -> fab) under xvfb
+# (kicad-cli's 3D renders need a GL context).
+#
+# On every push to main: builds and uploads the boards as a workflow artifact.
+# On a version tag (v*): additionally publishes a GitHub release with the
+# fab zips, KiCad project zips, and montages attached. Tag BEFORE building:
+# the back silk of each board carries `git describe`, so boards built from a
+# tag are stamped with that version.
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write # publish releases
+
+env:
+  ESPRESSIF_ADDON_URL: https://github.com/espressif/kicad-libraries/releases/download/3.1.0/espressif-kicad-addon.zip
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history + tags: git describe stamps the back silk
+
+      - name: Install KiCad 10 + render deps
+        run: |
+          sudo add-apt-repository -y ppa:kicad/kicad-10-releases
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            kicad kicad-symbols kicad-footprints kicad-packages3d \
+            imagemagick xvfb fonts-dejavu-core unzip zip
+
+      - name: Install Espressif KiCad libraries (headless PCM install)
+        run: |
+          ver="$(kicad-cli version | grep -oE '^[0-9]+\.[0-9]+')"
+          pkg=com_github_espressif_kicad-libraries
+          root="$HOME/.local/share/kicad/${ver}/3rdparty"
+          curl -sSL -o /tmp/espressif-addon.zip "$ESPRESSIF_ADDON_URL"
+          unzip -q /tmp/espressif-addon.zip -d /tmp/espressif-addon
+          for part in symbols footprints 3dmodels; do
+            mkdir -p "$root/$part/$pkg"
+            cp -R "/tmp/espressif-addon/$part/." "$root/$part/$pkg/"
+          done
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Restore Python env
+        run: uv sync
+
+      - name: Resolve KiCad + libraries
+        run: uv run python scripts/resolve_library.py
+
+      - name: Build + route + render + fab (all boards)
+        run: xvfb-run -a uv run python scripts/make.py --all
+
+      - name: Zip the KiCad projects
+        run: |
+          cd out
+          for d in */; do
+            m="${d%/}"
+            zip -qr "${m}-project.zip" "$m" -x "$m/route_debug/*" -x "$m/fab/*"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boards
+          path: |
+            out/*/*-fab.zip
+            out/*-project.zip
+            build/montage_*.png
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            out/*/*-fab.zip
+            out/*-project.zip
+            build/montage_*.png

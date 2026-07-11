@@ -9,6 +9,34 @@ labels (no routing). Output is a complete, openable KiCad project per module.
 > **Why / design rationale:** see [`DECISIONS.md`](DECISIONS.md). This file is
 > the *operational* guide; DECISIONS.md is the *why*.
 
+## What it builds
+
+![ESP32-C3-WROOM-02 dev board, 3D render](docs/images/hero.png)
+
+Every board is the same canonical dev board — USB-C, 3V3 LDO, BOOT/EN buttons,
+power + user LEDs — plus the module and its full GPIO break-out on two headers
+(that's the ESP32-C3-WROOM-02 above; every component carries its 3D model, so
+each board renders assembly-ready). The views below are to scale (equal
+mm-per-pixel; each label carries the board's WxH):
+
+![All 12 boards, front, to scale](docs/images/montage_top_scale.png)
+
+The back silk labels every header pin with its net name and carries a vertical
+board identifier — the module name plus the git revision that generated it
+(`git describe --tags --always --dirty`):
+
+![All 12 boards, back, to scale](docs/images/montage_bottom_scale.png)
+
+These are snapshots of what `make.py --render` writes to `build/`: seven
+montages (`montage_{top,top_bare,bottom}[_scale].png` — auto-fit and to-scale —
+plus `montage_hero.png`) and a perspective `render_hero.png` per board under
+`build/<MODULE>/`. To refresh them:
+
+```bash
+cp build/montage_{top,bottom}_scale.png docs/images/
+cp build/ESP32-C3-WROOM-02/render_hero.png docs/images/hero.png
+```
+
 ## Prerequisites (per machine)
 
 1. **KiCad 10.x** installed (the schematics use the v10 file format).
@@ -78,6 +106,8 @@ out/<MODULE>/            GENERATED board (git-ignored, disposable: rm -rf out)
   fab/ + <MODULE>-fab.zip   Gerbers + Excellon drill; the .zip is fab-ready
 build/<MODULE>/          GENERATED validation artifacts (git-ignored, disposable)
 docs/AGENT_END_TO_END.md  agent spec: curate every board.yaml, then pilot-verify one module
+docs/images/             committed montage snapshots referenced by this README
+
 ```
 
 ## The pipeline (`scripts/`)
@@ -90,7 +120,7 @@ docs/AGENT_END_TO_END.md  agent spec: curate every board.yaml, then pilot-verify
 | `resolve_library.py` | Find KiCad libs + `kicad-cli` → `library.json` | ✅ run once/machine |
 | `build_all.py [--clean]` | extract → build → validate every curated module | ✅ |
 | `route_all.py [--no-diff]` | autoroute every board (diff-pair with single-ended fallback; writes back in place) + DRC | ✅ |
-| `render_boards.py` | 3D montages of every board → `build/` (top, top-bare/no-components, bottom) | ✅ |
+| `render_boards.py` | 3D montages of every board → `build/` (top, top-bare/no-components, bottom — each auto-fit AND to-scale — plus a perspective hero shot per board) | ✅ |
 | `fab_all.py` | Gerber + Excellon drill zip per board → `out/<M>/<M>-fab.zip` | ✅ |
 | `clean.py` | remove generated output for a fresh run — just `rm -rf out build`; the curated `modules/` source is never touched | ✅ |
 
@@ -184,6 +214,26 @@ soldered down, and never on exposed copper (its real rendered bounding box is
 clearance-checked against every pad, and the size auto-shrinks on tight modules).
 This gives the board house a designated spot for its order number instead of it
 landing on visible silk. Change the text via `SILK_MARKER_TEXT` in `place_pcb.py`.
+
+**Back-silk board identifier.** Each board also gets a vertical B-silk text
+centred on the back: `"<module> <git describe --tags --always --dirty>"` — so a
+physical board always names its module and the exact repo revision that
+generated it. Tag the repo (e.g. `v1.0`) to get a clean rev number on the silk;
+between tags it reads `v1.0-3-g<hash>`, and `-dirty` flags uncommitted changes.
+The text auto-sizes to the board height (1.5 mm down to a 0.8 mm floor,
+dropping the revision before the name if it can't fit) — see
+`place_pcb.board_id_text`.
+
+## CI / Releases
+
+`.github/workflows/build.yml` runs the whole pipeline on GitHub Actions
+(Ubuntu): KiCad 10 from the official PPA, the Espressif PCM addon unpacked
+headlessly into the layout `resolve_library.py` expects, then
+`xvfb-run make.py --all`. Every push to `main` uploads the boards as a
+workflow artifact; pushing a version tag (`git tag v1.1 && git push --tags`)
+additionally publishes a GitHub **release** with the per-board fab zips, KiCad
+project zips, and the montages attached. Boards built from a tag carry that
+version on their back silk (the identifier bakes in `git describe`).
 
 ## Handoff notes
 

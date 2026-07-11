@@ -9,31 +9,45 @@
 
 ## 1 · COLD OPEN — 0:00
 
-**[SCREEN: black terminal, big font. You type `uv run python scripts/make.py`, hit enter. Hold on the first log lines.]**
+**[SCREEN: the actual Claude conversation — the "team of agents" ask and the refusal. This is the money shot for the title.]**
 
-**VO:** When I started this project, I did exactly what everyone on the internet is telling you to do right now. I asked an AI to spin up a *team of agents* to design a set of circuit boards for me.
+I wanted a dev board for every single ESP32 module. All twelve of them.
 
-**[CUT TO: you, to camera.]**
+So I did what everyone on the internet is telling you to do right now — I asked Claude to spin up a *team of AI agents* to design the boards for me.
 
-**TO CAMERA:** And it told me no. Claude pushed back. It said — this is a *mechanical* job. You don't want a swarm of agents improvising this. You want scripts. So I let it write the scripts instead.
+And it said: "No."
 
-**[CUT TO: the terminal time-lapse — boards rendering one after another — then a grid of all 12 finished boards rotating in 3D.]**
+It was very nice about it, but it basically said: "You're wasting my time and your own — this is not an AI problem. You don't want a swarm of agents randomly wiring things up. You want some deterministic scripts."
 
-**VO:** That was the right call. Twelve ESP32 dev boards. One command. And the reason it actually works is the thing nobody wants to admit about AI right now.
+So I let it write those instead.
 
-**[TITLE CARD.]**
+**[SCREEN: black terminal, big font. Type `uv run python scripts/make.py`, hit enter. Time-lapse of boards rendering one after another — then a grid of all 12 finished boards rotating in 3D.]**
+
+And there we go. Twelve fully routed dev boards, from one command. Let me show you why the AI was right to turn the job down.
 
 ---
 
 ## 2 · THE PROBLEM — ~0:45
 
+**[SCREEN: a dev board close-up, parts highlighting as you name them.]**
+
+I've built a few Espressif dev boards, and they always end up pretty similar.
+
+You have the USB-C port with its 5.1K resistors.
+
+You have the 3.3 volt regulator along with a bunch of decoupling capacitors.
+
+Two buttons — one to control boot mode and another to reset the module.
+
+Some LEDs.
+
+And of course the pin headers to break out the GPIO pins.
+
 **[SCREEN: the Espressif module line-up — S2, S3, C3, C5, C6, H2 — photos or the module pages.]**
 
-**VO:** Here's the job. Espressif make about a dozen modules with a PCB antenna and native USB. And for every single one of them, I wanted the same thing: a basic dev board. USB-C in, a 3-volt-3 regulator, a reset button, a boot button, a couple of LEDs, and all the pins broken out to headers.
+**VO:** Espressif make about a dozen modules with a PCB antenna and native USB, and I wanted that same board for every one of them. The only things that really differ are the number of pins on the headers, the size of the module, the positions of everything — and the actual routing of the copper.
 
-**[SCREEN: a hand-drawn or animated dev board, parts highlighting as you name them.]**
-
-**VO:** Now — that's the *same boring board* twelve times. And boring, repetitive work is exactly where humans make mistakes. Wire the LED to the wrong pin on board number nine at midnight and you won't find out until the thing won't boot.
+**VO:** So that's the *same boring board* twelve times. And boring, repetitive work is exactly where humans make mistakes. Wire the LED to the wrong pin on board number nine at midnight and you won't find out until the thing won't boot.
 
 **TO CAMERA:** This is the kind of job you *should* automate. The question is *how*.
 
@@ -49,7 +63,7 @@
 
 **VO:** The second is more like an *apprentice* you send off to read the datasheet and come back with notes. Slower. Costs you something every time. And it might get it slightly wrong. That's a language model.
 
-**TO CAMERA:** An AI in the middle of my routing loop would be slow, it'd cost money on every run, and it might *quietly* wire something wrong and never tell me. A script doesn't improvise. So I decided the AI gets to touch *one* file — the one file that actually needs a brain. Everything else is jigs.
+**TO CAMERA:** Now imagine putting an AI in the middle of that loop. Every run gets slower. Every run costs money. And worst of all — one day it'll wire something wrong, *quietly*, and I'll never know. A script can't do that. It's too boring to make mistakes — it does exactly the same thing, every single time. So here's the deal I settled on: the AI gets *one* file per board — the one file that actually needs a brain. Everything else is a jig.
 
 ---
 
@@ -57,11 +71,11 @@
 
 **[SCREEN: the terminal, run `make.py` for real. Let the stages scroll.]**
 
-**VO:** So here's the one command. And all it's really doing is four steps, in order. Build the schematic. Place the parts on the board. Route the copper. And render a picture so I can check it.
+**VO:** So here's the one command. All it's really doing is four steps, in order. Build the schematic. Place the parts on the board. Route the copper. And render a picture so I can check it.
 
-**[SCREEN: open one generated board in KiCad, spin the 3D view.]**
+**[SCREEN: open one generated board in KiCad, spin the 3D view. Zoom the ground pour and the fat power traces.]**
 
-**VO:** No mouse. No dragging traces. And that's not a mock-up — that's a real, manufacturable board I could send off and get back in the post.
+**VO:** No mouse. No dragging traces. We've got ground pours, thick 0.4 millimetre tracks for power, and the USB data lines routed as a differential pair. That's not a mock-up — it's a real, manufacturable board I could send off and get back in the post.
 
 ---
 
@@ -73,13 +87,13 @@
 
 **[SCREEN: same skeleton, drop in three different modules + header strips.]**
 
-**VO:** Then the generator snaps in the module and two header strips, and wires it all up automatically.
+**VO:** Then the generator snaps in the module and two header strips, draws the board outline to fit, and wires it all up with net labels. Automatically.
 
 **[SCREEN: two skeletons side by side — mirror images. Highlight the reset button on one side, the boot button on the other; then flip.]**
 
-**VO:** And here's a detail I really like. On some of these modules the **reset pin and the boot pin swap sides** — what's on the left of one module is on the right of another. So if I used a single fixed layout, half the boards would end up with long, ugly traces snaking across to reach a button.
+**VO:** And here's a detail I really like. On some of these modules the **reset pin and the boot pin swap sides** — what's on the left of one module is on the right of another. Use a single fixed layout and half the boards end up with long, ugly traces snaking across to reach a button.
 
-**VO:** So I keep *two* versions of the skeleton — mirror images of each other. On one, the reset button's on the left and boot's on the right; on the other, they're flipped. The generator looks at which side those pins come out on and picks the matching baseboard, so the buttons always sit right next to their pins. A human would just eyeball that. The script makes the same call, the same way, every time.
+**VO:** So I keep *two* versions of the skeleton — mirror images of each other. The generator looks at which side the reset pin comes out on and picks the matching baseboard, so the buttons always sit right next to their pins. A human would just eyeball that. The script makes the same call, the same way, every time.
 
 ---
 
@@ -87,15 +101,15 @@
 
 **[SCREEN: open a single `board.yaml`, highlight the `boot` field.]**
 
-**VO:** So where's the AI in all this? Right here. This little file. It's the *only* thing on each board I write by hand — or rather, the only thing the AI writes.
+**VO:** So where's the AI in all this? Right here. This little file. It's the *only* thing on each board that's written by hand — or rather, the only thing the AI writes.
 
-**VO:** Some decisions you genuinely can't script. Which pins are safe to expose, which are off-limits because they're wired to internal flash — and this one: the **boot pin**.
+**VO:** Some decisions you genuinely can't script. Which pins are safe to break out, and which are off-limits because they're wired to the module's internal flash. Which pins the USB D-plus and D-minus live on. And this one: the **boot pin**.
 
 **VO:** When you power up an ESP32, one special pin decides what it does — boot normally from flash, or drop into programming mode so you can upload new code. That's what the boot button on every dev board is for. But *which* GPIO does that job **changes depending on the chip** — it's one pin on the older Xtensa chips, a different one on most of the RISC-V chips, and different again on the C5.
 
 **[SCREEN: your atomic14.com/esp32 module page.]**
 
-**VO:** And all of that — which pin, on which chip — is written in plain English on my website, for humans. So that's the job I hand to the AI: read the page for this module, and tell me which pin is the boot pin. Messy human writing in, clean data out. That is the one thing a script can't do and a language model can.
+**VO:** And all of that — which pin, on which chip, which pins to leave alone — is written in plain English on my Espressif module information site, for humans. So that's the job I hand to the AI: read the page for this module, and fill in this file. Messy human writing in, clean data out. That is the one thing a script can't do and a language model can.
 
 **TO CAMERA:** That's the whole philosophy. The AI proposes. The jig verifies.
 
@@ -117,13 +131,15 @@
 
 **[SCREEN: zoom in on the USB D+/D- traces on a board, ideally a clean diff pair.]**
 
-**VO:** Now let me be honest about where this got hard. The USB data lines — D-plus and D-minus — are a *differential pair*. Best practice is to route them together, matched, side by side. So that's what I told the router to do on every board.
+**VO:** Now let me be honest about where this got hard: the routing. I found a really nice tool for this — KiCadRoutingTools. You can drive it from inside KiCad as a plugin, or just call its scripts, which is exactly what a jig wants. Claude and I spent a while getting it dialled in across all twelve boards.
+
+**VO:** The USB data lines — D-plus and D-minus — are a *differential pair*. Best practice is to route them together, matched, side by side. So that's what I told the router to do on every board.
 
 **[SCREEN: a board where they fell back to single-ended.]**
 
-**VO:** And on most boards, it nailed it. But on a few of the tighter, more crowded ones, the autorouter just *couldn't* complete the pair — there wasn't room to keep them together all the way. So rather than fail, it falls back and routes them individually.
+**VO:** On most boards, it nailed it. But on a few of the tighter, more crowded ones, the autorouter just *couldn't* complete the pair — there wasn't room to keep them together all the way. So rather than fail, it falls back and routes them individually.
 
-**TO CAMERA:** Is that perfect? No. A pro doing USB at high speed would care. For a basic dev board at USB full-speed, it's absolutely fine. But I'm not going to stand here and pretend the automation won every fight — it didn't, and it tells you when it compromised.
+**TO CAMERA:** Does that matter? Honestly — not here. The ESP32's native USB is *full-speed*, twelve megabits. At that speed you can get away without a perfectly matched pair; it's just good practice to have one. But I'm not going to stand here and pretend the automation won every fight — it didn't, and it tells you when it compromised.
 
 ---
 
@@ -143,15 +159,15 @@
 
 ## 10 · CLOSE — ~9:45
 
-**[SCREEN: the grid of 12 boards again.]**
+**[SCREEN: the grid of 12 boards again, then the fab zips landing in the terminal.]**
 
-**VO:** So — twelve boards, one command. Scripts do the boring, mechanical ninety-five percent. The AI does the one bit that needs judgement: reading the docs and writing the notes. And a set of guardrails makes sure it can't hurt itself.
+**VO:** So — twelve boards, one command. Every one of them passes the design rule check with zero errors, and the Gerbers come out the other end zipped up and ready to send to the fab. Scripts do the boring, mechanical ninety-five percent. The AI does the one bit that needs judgement: reading the docs and writing the notes. And a set of guardrails makes sure it can't hurt anything.
 
 **TO CAMERA:** The lesson I actually want you to take away isn't "use AI." It's the opposite. The clever part was working out where *not* to. Even the AI knew that before I did.
 
 **[SCREEN: repo link / atomic14 lower-third.]**
 
-**TO CAMERA:** Everything's on GitHub, link below. And there's a whole other video in *how* the AI fills in that one file from the website — tell me in the comments if you want that one. Cheers.
+**TO CAMERA:** So — over to you. Which of these boards should we actually get manufactured? What would you like to see? Tell me in the comments. Everything's on GitHub, link below — and there's a whole other video in *how* the AI fills in that one file from the website, so let me know if you want that one too. Cheers.
 
 **[END CARD.]**
 
@@ -159,22 +175,33 @@
 
 ## Shot list (film while it's fresh)
 
+- The Claude "no" conversation for the cold open — screenshot or screen recording.
 - The `make.py` time-lapse — the money shot. Film it clean.
+- Component close-ups for beat 2 (USB-C, regulator, buttons, LEDs, headers).
+- Two mirrored baseboards, reset/boot buttons swapping sides (beat 5).
+- One `board.yaml` on screen — the only hand-authored file (beat 6).
 - The LED safety hard-error firing live (beat 7).
 - USB diff-pair vs single-ended fallback, two boards side by side (beat 8).
 - The "green check that lied" — passing ERC next to the render with unconnected USB pins (beat 9).
-- One `board.yaml` on screen — the only hand-authored file (beats 6).
-- Two mirrored baseboards, reset/boot buttons swapping sides (beat 5).
+- Ground pour + 0.4mm power traces zoom (beat 4).
 
 ## Accuracy notes (don't contradict the code on camera)
 
 - **Baseboard mirror (beat 5)** = *physical layout*. The EN (reset) and BOOT pins
   swap sides as a pair between module families; the generator keys the choice off
-  the EN pin's edge (`build_board.py: baseline_dir`) and picks `baseline-left-en`
+  the **EN pin's** edge (`build_board.py: baseline_dir`) and picks `baseline-left-en`
   or `baseline-right-en`. No GPIO numbers here.
 - **Boot pin (beat 6)** = *logical*. The `board.yaml` `boot` field — which GPIO
   the boot button pulls low for programming-vs-flash. GPIO0 on Xtensa (S2/S3),
   GPIO9 on most RISC-V (C3/C6/H2), GPIO28 on C5. This does NOT affect baseboard
   selection.
+- **USB speed (beat 8)**: ESP32 native USB is **full-speed (12 Mbps)** — never say
+  "high speed" on camera; the point is that full-speed is *forgiving* of an
+  unmatched pair, not that high speed is.
 - The diff-pair fallback is real: routing defaults to diff-pair with a
   single-ended fallback (`route_all.py`, `--no-diff` forces single-ended).
+- **Zero errors (beat 10)** = *DRC on the PCB*. Don't claim zero **ERC**
+  violations — the skeleton ships with ~58 pre-existing ones by design; the gate
+  is "no *new* errors."
+- The router is **KiCadRoutingTools** (sibling repo, Rust router) — confirm how
+  you want to credit/name it on camera.
