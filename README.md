@@ -52,7 +52,15 @@ cp build/ESP32-C3-WROOM-02/render_hero.png docs/images/hero.png
    > **hard-fail** (with these instructions) if the addon is missing for it,
    > rather than silently mixing libraries across versions.
 3. **[uv](https://docs.astral.sh/uv/)** (Python package manager).
-4. Internet access to `https://www.atomic14.com/esp32/` (only needed when
+4. **[KiCadRoutingTools](https://github.com/atomic14/KiCadRoutingTools)** (our
+   fork, `dev-board-fixes` branch) cloned as a **sibling** of this repo (or set
+   `$KICAD_ROUTING_TOOLS`), with its Rust router built:
+   ```bash
+   git clone -b dev-board-fixes https://github.com/atomic14/KiCadRoutingTools.git ../KiCadRoutingTools
+   (cd ../KiCadRoutingTools && python3 build_router.py --from-source)  # needs cargo
+   ```
+   Only needed for the *route* stage — build/render/fab work without it.
+5. Internet access to `https://www.atomic14.com/esp32/` (only needed when
    curating a new module's `board.yaml`).
 
 `resolve_library.py` auto-locates KiCad on macOS / Linux / Windows. If it can't,
