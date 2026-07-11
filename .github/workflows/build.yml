@@ -35,7 +35,9 @@ jobs:
         run: |
           sudo add-apt-repository -y ppa:kicad/kicad-10.0-releases
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
+          # NOT --no-install-recommends: kicad's recommended deps (mesa/dbus/
+          # fontconfig) are needed — without them kicad-cli segfaults headless.
+          sudo apt-get install -y \
             kicad kicad-symbols kicad-footprints kicad-packages3d \
             imagemagick xvfb fonts-dejavu-core unzip zip
 
