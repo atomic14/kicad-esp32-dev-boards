@@ -62,6 +62,20 @@ jobs:
       - name: Restore Python env
         run: uv sync
 
+      - name: DEBUG kicad-cli teardown crash (temporary)
+        run: |
+          set +e
+          apt-get install -y --no-install-recommends gdb dbus dbus-x11 >/dev/null 2>&1
+          echo "== plain ==";         kicad-cli version;                                echo "exit=$?"
+          echo "== xvfb ==";          xvfb-run -a kicad-cli version;                    echo "exit=$?"
+          echo "== xdg ==";           mkdir -p /tmp/xdg; chmod 700 /tmp/xdg; XDG_RUNTIME_DIR=/tmp/xdg xvfb-run -a kicad-cli version; echo "exit=$?"
+          echo "== dbus ==";          xvfb-run -a dbus-run-session -- kicad-cli version; echo "exit=$?"
+          echo "== fresh HOME ==";    mkdir -p /tmp/h; HOME=/tmp/h kicad-cli version;   echo "exit=$?"
+          echo "== as kicad user =="; su kicad -c "kicad-cli version";                  echo "exit=$?"
+          echo "== gdb backtrace =="
+          xvfb-run -a gdb -batch -ex run -ex bt --args kicad-cli version 2>&1 | tail -25
+          true
+
       - name: Resolve KiCad + libraries
         # xvfb: kicad-cli segfaults with no display, even for `version`
         run: xvfb-run -a uv run python scripts/resolve_library.py
