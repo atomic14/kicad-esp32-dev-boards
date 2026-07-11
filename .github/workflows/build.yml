@@ -23,11 +23,11 @@ permissions:
 
 env:
   ESPRESSIF_ADDON_URL: https://github.com/espressif/kicad-libraries/releases/download/3.1.0/espressif-kicad-addon.zip
-  # Autorouter: pinned upstream commit + the local patch vendored in
-  # .github/KiCadRoutingTools-local.patch (adds --same-net-pad-clearance,
-  # which route_board.py passes on every routing pass).
-  ROUTING_TOOLS_REPO: https://github.com/drandyhaas/KiCadRoutingTools.git
-  ROUTING_TOOLS_REF: a017e7436f345599e0ab3709a629582ae194fdf3
+  # Autorouter: our fork of drandyhaas/KiCadRoutingTools, pinned at the
+  # dev-board-fixes branch commit (adds --same-net-pad-clearance, which
+  # route_board.py passes on every routing pass).
+  ROUTING_TOOLS_REPO: https://github.com/atomic14/KiCadRoutingTools.git
+  ROUTING_TOOLS_REF: da0ce149468f16e0daec2a874279bbfd7451f1a1
 
 jobs:
   build:
@@ -63,17 +63,21 @@ jobs:
             cp -R "/tmp/espressif-addon/$part/." "$root/$part/$pkg/"
           done
 
-      - name: Install KiCadRoutingTools (pinned + local patch)
+      - name: Install KiCadRoutingTools (pinned fork)
         # route_board.py expects the autorouter as a sibling ../KiCadRoutingTools.
-        # build_router.py downloads a prebuilt Rust router from that project's
-        # releases (no toolchain needed). python3-numpy/scipy/shapely (apt, above)
-        # cover its runtime deps — route.py runs under system python3.
+        # The Rust router is built FROM SOURCE: the pinned commit's Cargo.toml
+        # version (0.16.2) has no prebuilt release upstream, and a newer
+        # prebuilt fails build_router's version check. python3-numpy/scipy/
+        # shapely (apt, above) cover the runtime deps — route.py runs under
+        # system python3.
         run: |
+          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          . "$HOME/.cargo/env"
           tools="$GITHUB_WORKSPACE/../KiCadRoutingTools"
           git clone "$ROUTING_TOOLS_REPO" "$tools"
           git -C "$tools" checkout "$ROUTING_TOOLS_REF"
-          git -C "$tools" apply "$GITHUB_WORKSPACE/.github/KiCadRoutingTools-local.patch"
-          cd "$tools" && python3 build_router.py
+          cd "$tools"
+          python3 build_router.py --from-source
 
       - uses: astral-sh/setup-uv@v6
 
