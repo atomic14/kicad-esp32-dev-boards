@@ -100,9 +100,11 @@ jobs:
           # zone filling / GND stitching run pcbnew scripts with the system
           # python3 next to kicad-cli — fail fast if pcbnew is missing there
           /usr/bin/python3 -c "import pcbnew; print('pcbnew', pcbnew.GetBuildVersion())"
-          # canary: the back-silk identifier stamps `git describe` from a
-          # python subprocess — show exactly what that sees
-          uv run python -c "import subprocess; r = subprocess.run(['git','describe','--tags','--always','--dirty'], capture_output=True, text=True); print('git describe rc:', r.returncode, 'out:', r.stdout.strip(), 'err:', r.stderr.strip())"
+          # the back-silk identifier stamps `git describe` from a python
+          # subprocess; the bind-mounted workspace is owned by another uid, so
+          # git refuses it ("dubious ownership") without this. Canary after.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          uv run python -c "import subprocess, sys; r = subprocess.run(['git','describe','--tags','--always','--dirty'], capture_output=True, text=True); print('git describe:', r.stdout.strip() or r.stderr.strip()); sys.exit(r.returncode)"
 
       - name: Resolve KiCad + libraries
         run: xvfb-run -a uv run python scripts/resolve_library.py
