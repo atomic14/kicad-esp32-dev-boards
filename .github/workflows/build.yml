@@ -23,6 +23,11 @@ permissions:
 
 env:
   ESPRESSIF_ADDON_URL: https://github.com/espressif/kicad-libraries/releases/download/3.1.0/espressif-kicad-addon.zip
+  # Autorouter: pinned upstream commit + the local patch vendored in
+  # .github/KiCadRoutingTools-local.patch (adds --same-net-pad-clearance,
+  # which route_board.py passes on every routing pass).
+  ROUTING_TOOLS_REPO: https://github.com/drandyhaas/KiCadRoutingTools.git
+  ROUTING_TOOLS_REF: a017e7436f345599e0ab3709a629582ae194fdf3
 
 jobs:
   build:
@@ -39,7 +44,8 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
-            git imagemagick xvfb fonts-dejavu-core unzip zip curl ca-certificates
+            git imagemagick xvfb fonts-dejavu-core unzip zip curl ca-certificates \
+            python3-numpy python3-scipy python3-shapely
 
       - uses: actions/checkout@v4
         with:
@@ -56,6 +62,18 @@ jobs:
             mkdir -p "$root/$part/$pkg"
             cp -R "/tmp/espressif-addon/$part/." "$root/$part/$pkg/"
           done
+
+      - name: Install KiCadRoutingTools (pinned + local patch)
+        # route_board.py expects the autorouter as a sibling ../KiCadRoutingTools.
+        # build_router.py downloads a prebuilt Rust router from that project's
+        # releases (no toolchain needed). python3-numpy/scipy/shapely (apt, above)
+        # cover its runtime deps — route.py runs under system python3.
+        run: |
+          tools="$GITHUB_WORKSPACE/../KiCadRoutingTools"
+          git clone "$ROUTING_TOOLS_REPO" "$tools"
+          git -C "$tools" checkout "$ROUTING_TOOLS_REF"
+          git -C "$tools" apply "$GITHUB_WORKSPACE/.github/KiCadRoutingTools-local.patch"
+          cd "$tools" && python3 build_router.py
 
       - uses: astral-sh/setup-uv@v6
 

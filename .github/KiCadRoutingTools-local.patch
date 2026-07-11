@@ -1,0 +1,148 @@
+diff --git a/obstacle_map.py b/obstacle_map.py
+index 39f5eb4..e7c89c7 100644
+--- a/obstacle_map.py
++++ b/obstacle_map.py
+@@ -1258,25 +1258,35 @@ def add_same_net_via_clearance(obstacles: GridObstacleMap, pcb_data: PCBData,
+ 
+ def add_same_net_pad_drill_via_clearance(obstacles: GridObstacleMap, pcb_data: PCBData,
+                                           net_id: int, config: GridRouteConfig):
+-    """Add via blocking near same-net pad drill holes (hole-to-hole clearance).
++    """Add via blocking near same-net pads.
+ 
+-    This blocks via placement near through-hole pads on the same net,
+-    enforcing manufacturing hole-to-hole clearance even within a single net.
+-    New vias must maintain hole_to_hole_clearance from existing pad drill holes.
++    Through-hole pads: keep new vias a hole-to-hole clearance off the drill,
++    enforcing manufacturing hole-to-hole clearance even within a single net. The
++    pad center itself is NOT blocked - the router can use the existing through-hole
++    for a layer transition without placing a new via.
+ 
+-    IMPORTANT: The pad center itself is NOT blocked - the router can use existing
+-    through-hole pads for layer transitions without placing a new via. Only the
+-    area around the pad (within clearance distance) is blocked for new vias.
++    SMD pads: when config.same_net_pad_via_clearance >= 0, block the pad copper
++    area (+ that edge-to-edge clearance) so the router can't drop a via inside a
++    same-net SMD pad (a via-in-pad, undesirable for fab/assembly). Off by default
++    (-1), preserving the prior via-in-pad-allowed behaviour.
+     """
+-    if config.hole_to_hole_clearance <= 0:
+-        return
+-
+     coord = GridCoord(config.grid_step)
++    smd_clear = config.same_net_pad_via_clearance
+ 
+     pads = pcb_data.pads_by_net.get(net_id, [])
+     for pad in pads:
+         if pad.drill <= 0:
+-            continue  # SMD pad, no drill hole
++            # SMD pad: no drill, so no hole-to-hole rule — but optionally block the
++            # pad copper as a via site to keep vias out of the pad.
++            if smd_clear >= 0:
++                # Lazy import avoids an obstacle_map <-> plane_obstacle_builder cycle.
++                from plane_obstacle_builder import _add_pad_via_obstacle
++                _add_pad_via_obstacle(obstacles, pad, coord, config,
++                                      clearance_override=smd_clear)
++            continue
++
++        if config.hole_to_hole_clearance <= 0:
++            continue
+ 
+         # Required center-to-center distance = (pad_drill/2) + (new_via_drill/2) + clearance
+         # mm-distance test (not floored integer cells) so a via cannot land a
+diff --git a/route.py b/route.py
+index 560ca56..635464b 100644
+--- a/route.py
++++ b/route.py
+@@ -162,6 +162,7 @@ def batch_route(input_file: str, output_file: str, net_names: List[str],
+                 routing_clearance_margin: float = 1.0,
+                 hole_to_hole_clearance: float = 0.2,
+                 board_edge_clearance: float = 0.0,
++                same_net_pad_via_clearance: float = -1.0,
+                 vertical_attraction_radius: float = 1.0,
+                 vertical_attraction_cost: float = 0.0,
+                 ripped_route_avoidance_radius: float = 1.0,
+@@ -332,6 +333,7 @@ def batch_route(input_file: str, output_file: str, net_names: List[str],
+     config_kwargs['power_tap_neckdown'] = power_tap_neckdown
+     config_kwargs['neckdown_length'] = neckdown_length
+     config_kwargs['neckdown_taper_length'] = neckdown_taper_length
++    config_kwargs['same_net_pad_via_clearance'] = same_net_pad_via_clearance
+     if direction_order is not None:
+         config_kwargs['direction_order'] = direction_order
+     if layer_widths:
+@@ -1308,6 +1310,10 @@ For differential pair routing, use route_diff.py:
+                         help=f"Minimum clearance between drill holes in mm (default: {defaults.HOLE_TO_HOLE_CLEARANCE})")
+     parser.add_argument("--board-edge-clearance", type=float, default=defaults.BOARD_EDGE_CLEARANCE,
+                         help=f"Clearance from board edge in mm (default: {defaults.BOARD_EDGE_CLEARANCE} = use track clearance)")
++    parser.add_argument("--same-net-pad-clearance", type=float, default=defaults.SAME_NET_PAD_CLEARANCE,
++                        help="Edge-to-edge clearance (mm) between vias and same-net SMD pads. "
++                             "-1 (default) allows via-in-pad; any value >= 0 forces vias outside "
++                             "same-net pads with that clearance.")
+     parser.add_argument("--no-fix-drc-settings", action="store_true",
+                         help="Do not adjust the output's .kicad_pro DRC constraints to match the "
+                              "routed clearances/sizes afterwards (issue #160). By default the "
+@@ -1505,6 +1511,7 @@ For differential pair routing, use route_diff.py:
+                 routing_clearance_margin=args.routing_clearance_margin,
+                 hole_to_hole_clearance=args.hole_to_hole_clearance,
+                 board_edge_clearance=args.board_edge_clearance,
++                same_net_pad_via_clearance=args.same_net_pad_clearance,
+                 vertical_attraction_radius=args.vertical_attraction_radius,
+                 vertical_attraction_cost=args.vertical_attraction_cost,
+                 ripped_route_avoidance_radius=args.ripped_route_avoidance_radius,
+diff --git a/routing_config.py b/routing_config.py
+index acde2b6..732a5c5 100644
+--- a/routing_config.py
++++ b/routing_config.py
+@@ -73,6 +73,9 @@ class GridRouteConfig:
+     routing_clearance_margin: float = 1.0  # Multiplier on track-via clearance (1.0 = minimum DRC)
+     hole_to_hole_clearance: float = 0.2  # mm - minimum clearance between drill holes (edge to edge)
+     board_edge_clearance: float = 0.0  # mm - clearance from board edge (0 = use track clearance)
++    # >= 0: block same-net SMD pads as via sites with this edge-to-edge clearance (mm),
++    # so the router can't drop a via in a pad (manufacturability). -1 = allow via-in-pad.
++    same_net_pad_via_clearance: float = -1.0
+     max_turn_angle: float = 180.0  # Max cumulative turn angle (degrees) before reset, to prevent U-turns
+     # Power-tap neck-down (issue #72): when a wide power-net tap edge fails,
+     # retry it at the layer's default track width. The narrow neck extends
+diff --git a/routing_context.py b/routing_context.py
+index bffd8ea..b08aeb7 100644
+--- a/routing_context.py
++++ b/routing_context.py
+@@ -24,6 +24,7 @@ from obstacle_cache import (
+ from connectivity import get_stub_endpoints
+ from net_queries import get_chip_pad_positions
+ from pcb_modification import add_route_to_pcb_data
++from routing_utils import iter_pad_blocked_cells
+ 
+ 
+ def _add_free_via_positions(obstacles, pcb_data, net_ids: List[int], config):
+@@ -484,6 +485,31 @@ def prepare_obstacles_inplace(
+                                 continue
+                             same_net_via_cells.append((gx + ex, gy + ey))
+ 
++    # Same-net SMD pad via clearance (opt-in): block the pad copper area (+ this
++    # clearance) as via sites so the router can't drop a via inside the net's own
++    # SMD pad (via-in-pad). The track can still terminate on the pad (only VIA
++    # placement is blocked), so the router arrives on the pad's layer or taps in
++    # from a via just outside the pad. Through-hole pads are handled above.
++    if config.same_net_pad_via_clearance >= 0:
++        margin = config.via_size / 2 + config.same_net_pad_via_clearance + config.grid_step / 2
++        for pad in pcb_data.pads_by_net.get(net_id, []):
++            if pad.drill and pad.drill > 0:
++                continue
++            half_w, half_h = pad.size_x / 2, pad.size_y / 2
++            if pad.shape in ('circle', 'oval'):
++                corner_radius = min(half_w, half_h)
++            elif pad.shape == 'roundrect':
++                corner_radius = pad.roundrect_rratio * min(pad.size_x, pad.size_y)
++            else:
++                corner_radius = 0.0
++            gx, gy = coord.to_grid(pad.global_x, pad.global_y)
++            for cell in iter_pad_blocked_cells(
++                    gx, gy, half_w, half_h, margin, config.grid_step, corner_radius,
++                    off_x=pad.global_x - gx * coord.grid_step,
++                    off_y=pad.global_y - gy * coord.grid_step,
++                    rotation_deg=pad.rect_rotation):
++                same_net_via_cells.append(cell)
++
+     # Batch add same-net via clearance (convert to numpy for Rust FFI)
+     if same_net_via_cells:
+         same_net_via_arr = np.array(same_net_via_cells, dtype=np.int32)
