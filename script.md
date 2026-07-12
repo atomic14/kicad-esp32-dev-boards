@@ -21,7 +21,7 @@ It was very nice about it, but it basically said: "You're wasting my time and yo
 
 So I let it write those instead.
 
-**[SCREEN: black terminal, big font. Type `uv run python scripts/make.py`, hit enter. Time-lapse of boards rendering one after another — then a grid of all 12 finished boards rotating in 3D.]**
+**[SCREEN: black terminal, big font. Type `uv run python scripts/make.py --all`, hit enter. Time-lapse of boards rendering one after another — then a grid of all 12 finished boards rotating in 3D (the hero montage).]**
 
 And there we go. Twelve fully routed dev boards, from one command. Let me show you why the AI was right to turn the job down.
 
@@ -59,7 +59,7 @@ And of course the pin headers to break out the GPIO pins.
 
 **VO:** There are two completely different kinds of tool here, and the whole project comes down to telling them apart.
 
-**VO:** The first is a *jig*. Same input, same output, every single time. Free, instant, perfectly repeatable. A script is a jig. I can run it today, run it next year, and get byte-for-byte identical boards.
+**VO:** The first is a *jig*. Same input, same output, every single time. Free, instant, perfectly repeatable. A script is a jig. I can run it, wipe everything, and run it again — and get byte-for-byte identical boards.
 
 **VO:** The second is more like an *apprentice* you send off to read the datasheet and come back with notes. Slower. Costs you something every time. And it might get it slightly wrong. That's a language model.
 
@@ -71,7 +71,7 @@ And of course the pin headers to break out the GPIO pins.
 
 **[SCREEN: the terminal, run `make.py` for real. Let the stages scroll.]**
 
-**VO:** So here's the one command. All it's really doing is four steps, in order. Build the schematic. Place the parts on the board. Route the copper. And render a picture so I can check it.
+**VO:** So here's the one command. All it's really doing is a handful of steps, in order. Build the schematic. Place the parts on the board. Route the copper. Render a picture so I can check it. And zip up the files the factory needs.
 
 **[SCREEN: open one generated board in KiCad, spin the 3D view. Zoom the ground pour and the fat power traces.]**
 
@@ -95,6 +95,10 @@ And of course the pin headers to break out the GPIO pins.
 
 **VO:** So I keep *two* versions of the skeleton — mirror images of each other. The generator looks at which side the reset pin comes out on and picks the matching baseboard, so the buttons always sit right next to their pins. A human would just eyeball that. The script makes the same call, the same way, every time.
 
+**[SCREEN: flip a board over — zoom the vertical silk text down the middle of the back: "ESP32-S3-MINI-1 v1.0".]**
+
+**VO:** And the jig signs its work. Every board gets the module name and the exact git revision that generated it, printed down the back in silkscreen. If one of these turns up in a drawer in five years, the board itself tells you precisely which version of the scripts made it.
+
 ---
 
 ## 6 · WHERE THE AI ACTUALLY LIVES — ~6:15
@@ -103,7 +107,7 @@ And of course the pin headers to break out the GPIO pins.
 
 **VO:** So where's the AI in all this? Right here. This little file. It's the *only* thing on each board that's written by hand — or rather, the only thing the AI writes.
 
-**VO:** Some decisions you genuinely can't script. Which pins are safe to break out, and which are off-limits because they're wired to the module's internal flash. Which pins the USB D-plus and D-minus live on. And this one: the **boot pin**.
+**VO:** Some decisions you genuinely can't script. Which pins are safe to break out, and which are off-limits because they're wired to the module's internal flash. Which pins the chip reads at power-up, so the on-board LED mustn't sit on them. And this one: the **boot pin**.
 
 **VO:** When you power up an ESP32, one special pin decides what it does — boot normally from flash, or drop into programming mode so you can upload new code. That's what the boot button on every dev board is for. But *which* GPIO does that job **changes depending on the chip** — it's one pin on the older Xtensa chips, a different one on most of the RISC-V chips, and different again on the C5.
 
@@ -127,19 +131,21 @@ And of course the pin headers to break out the GPIO pins.
 
 ---
 
-## 8 · HONESTY BEAT 1 — THE DIFF-PAIR COMPROMISE — ~8:15
+## 8 · HONESTY BEAT 1 — THE LOG THAT NEARLY FOOLED ME — ~8:15
 
-**[SCREEN: zoom in on the USB D+/D- traces on a board, ideally a clean diff pair.]**
+**[SCREEN: zoom in on the USB D+/D- traces — two tracks running perfectly parallel from the USB-C up to the module.]**
 
 **VO:** Now let me be honest about where this got hard: the routing. I found a really nice tool for this — KiCadRoutingTools. You can drive it from inside KiCad as a plugin, or just call its scripts, which is exactly what a jig wants. Claude and I spent a while getting it dialled in across all twelve boards.
 
-**VO:** The USB data lines — D-plus and D-minus — are a *differential pair*. Best practice is to route them together, matched, side by side. So that's what I told the router to do on every board.
+**VO:** The USB data lines — D-plus and D-minus — are a *differential pair*. Best practice is to route them together, matched, side by side. And look — that's exactly what it does. On every one of the twelve boards, those two tracks run coupled, fifteen hundredths of a millimetre apart, all the way from the connector to the module.
 
-**[SCREEN: a board where they fell back to single-ended.]**
+**[SCREEN: the router's log — "deferred to single-ended ['D+', 'D-']" highlighted. Big red circle.]**
 
-**VO:** On most boards, it nailed it. But on a few of the tighter, more crowded ones, the autorouter just *couldn't* complete the pair — there wasn't room to keep them together all the way. So rather than fail, it falls back and routes them individually.
+**VO:** But here's the bit that nearly caught me out. When I read the router's log, I found *this* — "deferred to single-ended, D-plus, D-minus". I read that and thought the pair had failed. I was halfway through writing "the automation lost this fight" before I went and actually *measured the copper*.
 
-**TO CAMERA:** Does that matter? Honestly — not here. The ESP32's native USB is *full-speed*, twelve megabits. At that speed you can get away without a perfectly matched pair; it's just good practice to have one. But I'm not going to stand here and pretend the automation won every fight — it didn't, and it tells you when it compromised.
+**VO:** The pair was fine. That message is about a couple of *millimetre-long* stubs at the connector itself — the USB-C has two pads for each data line, and the router is smart enough to know that coupling a one-millimetre pad bridge is meaningless, so it finishes those tiny legs individually. The main run — the bit that matters — is a textbook coupled pair on every single board.
+
+**TO CAMERA:** So the automation was right, and *I* was the unreliable component — I trusted a log line instead of the board. Hold that thought, because it's about to become a theme.
 
 ---
 
@@ -163,6 +169,10 @@ And of course the pin headers to break out the GPIO pins.
 
 **VO:** So — twelve boards, one command. Every one of them passes the design rule check with zero errors, and the Gerbers come out the other end zipped up and ready to send to the fab. Scripts do the boring, mechanical ninety-five percent. The AI does the one bit that needs judgement: reading the docs and writing the notes. And a set of guardrails makes sure it can't hurt anything.
 
+**[SCREEN: the GitHub Actions run going green, then the release page with all the zips.]**
+
+**VO:** In fact, it doesn't even need my computer any more. The whole pipeline runs on GitHub's servers — every change rebuilds all twelve boards from scratch inside a KiCad container, and tagging a release publishes the Gerbers and the KiCad projects automatically. You don't have to run anything: the files you'd send to the fab are sitting on the releases page right now.
+
 **TO CAMERA:** The lesson I actually want you to take away isn't "use AI." It's the opposite. The clever part was working out where *not* to. Even the AI knew that before I did.
 
 **[SCREEN: repo link / atomic14 lower-third.]**
@@ -176,14 +186,23 @@ And of course the pin headers to break out the GPIO pins.
 ## Shot list (film while it's fresh)
 
 - The Claude "no" conversation for the cold open — screenshot or screen recording.
-- The `make.py` time-lapse — the money shot. Film it clean.
+- The `make.py --all` time-lapse — the money shot. Film it clean.
+- The hero montage (`build/montage_hero.png`) and the to-scale montages
+  (`montage_top_scale.png` / `montage_bottom_scale.png`) for the grid shots —
+  the to-scale ones make the size differences land.
 - Component close-ups for beat 2 (USB-C, regulator, buttons, LEDs, headers).
 - Two mirrored baseboards, reset/boot buttons swapping sides (beat 5).
+- The back-silk version stamp (beat 5) — flip to the bottom view, zoom the
+  vertical "ESP32-S3-MINI-1 v1.0" text between the pin-label columns.
 - One `board.yaml` on screen — the only hand-authored file (beat 6).
 - The LED safety hard-error firing live (beat 7).
-- USB diff-pair vs single-ended fallback, two boards side by side (beat 8).
+- Beat 8 needs BOTH shots: the coupled D+/D- pair zoomed on the board (two
+  parallel tracks, USB-C to module) AND the misleading log line `deferred to
+  single-ended ['D+', 'D-']` (run `scripts/lib/route_board.py` on a freshly
+  built board to capture it live).
 - The "green check that lied" — passing ERC next to the render with unconnected USB pins (beat 9).
 - Ground pour + 0.4mm power traces zoom (beat 4).
+- GitHub Actions run going green + the v1.0 release page with 24 zips (close).
 
 ## Accuracy notes (don't contradict the code on camera)
 
@@ -198,10 +217,34 @@ And of course the pin headers to break out the GPIO pins.
 - **USB speed (beat 8)**: ESP32 native USB is **full-speed (12 Mbps)** — never say
   "high speed" on camera; the point is that full-speed is *forgiving* of an
   unmatched pair, not that high speed is.
-- The diff-pair fallback is real: routing defaults to diff-pair with a
-  single-ended fallback (`route_all.py`, `--no-diff` forces single-ended).
+- **Diff pair (beat 8) — measured on the copper, 2026-07-12**: ALL 12 boards
+  route D+/D- as a proper coupled pair — 92–96% of the D+ track length runs
+  at 0.30 mm centre-to-centre (0.15 track + 0.15 gap) from D- on the same
+  layer. The log line `deferred to single-ended ['D+', 'D-']` refers ONLY to
+  the millimetre-scale legs at the USB-C's duplicated pads (A6/B6, A7/B7 —
+  multi-point nets); the router couples the long leg and finishes the short
+  pad bridges single-ended. Do NOT say the pair failed, fell back, or was
+  declined — the beat is now "I misread the log; the copper was right."
+  (Verify script: measure D+ segments' distance to same-layer D- segments in
+  the .kicad_pcb — see the coupling check used on 2026-07-12.)
 - **Zero errors (beat 10)** = *DRC on the PCB*. Don't claim zero **ERC**
   violations — the skeleton ships with ~58 pre-existing ones by design; the gate
   is "no *new* errors."
-- The router is **KiCadRoutingTools** (sibling repo, Rust router) — confirm how
-  you want to credit/name it on camera.
+- The router is **KiCadRoutingTools by drandyhaas** (github.com/drandyhaas/
+  KiCadRoutingTools) — credit him on camera. We run a pinned fork
+  (atomic14/KiCadRoutingTools, `dev-board-fixes`) that adds one small feature:
+  keeping vias out of same-net SMD pads (`--same-net-pad-clearance`).
+- **The one command (beats 1/4/10)**: plain `make.py` only builds + routes.
+  Renders and fab zips need `--render`/`--fab` — on camera, type
+  **`make.py --all`** so the montage + zips shown actually come from that run.
+- **"Byte-for-byte identical" (beat 3)**: true at a given commit (UUIDs are
+  deterministic) — but the back silk bakes in `git describe`, so boards from
+  different commits differ by exactly that stamp. Say "run it twice, get the
+  same boards"; avoid "next year" unless you add "from the same commit".
+- **Back-silk stamp (beat 5)**: text is `<module> <git describe>` — e.g.
+  `ESP32-S3-MINI-1 v1.0` from the tag, `...v1.0-2-gc9c8c5d` between tags,
+  `-dirty` with uncommitted changes. Film a board built from the v1.0 tag for
+  a clean stamp.
+- **CI (close)**: runs in the official `kicad/kicad:10.0-full` Docker image;
+  a `v*` tag publishes the release (12 fab zips + 12 project zips + montages).
+  Releases page: github.com/atomic14/kicad-esp32-dev-boards/releases.
