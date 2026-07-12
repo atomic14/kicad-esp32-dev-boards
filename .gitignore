@@ -18,3 +18,9 @@ fp-info-cache
 # modules/ holds only the curated source: board.yaml + the extracted pinout.json.
 
 .DS_Store
+
+# modules/ holds ONLY curated source (board.yaml + pinout.json). KiCad drops
+# project files next to anything it opens — those are generated noise here.
+modules/**/*.kicad_pro
+modules/**/*.kicad_sch
+modules/**/*.kicad_pcb
