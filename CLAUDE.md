@@ -24,6 +24,11 @@ uv run python scripts/make.py              # THE command: build + route every mo
 
 `make.py` chains clean → build → route → render → fab:
 - `make.py --clean` wipe prior output first · `--render` also 3D montages · `--fab` also Gerber+drill zips · `--all` all stages · `--no-route` build only · `--no-diff` route D+/D- single-ended.
+- `--animate` (NOT in `--all`; ~30 min) renders `build/montage_spin.mp4` — a
+  2560x1440 turntable montage of all 12 boards. See `animate_boards.py`: it uses
+  orthogonal projection because `--zoom` is only linear in px-per-mm there, and
+  pre-measures each board's fit-vs-yaw curve to cancel kicad-cli's per-frame
+  re-fit (which otherwise makes a spinning board pulse in size).
 
 Single module (the `scripts/lib/` primitives, rarely run directly):
 ```bash

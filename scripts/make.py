@@ -8,6 +8,7 @@ which still works standalone):
   build_all.py      schematic + PCB + ERC, every module (default ON)
   route_all.py      autoroute + DRC, every board        (default ON)
   render_boards.py  3D montages into build/             (opt-in: --render)
+  animate_boards.py spinning 3D montage mp4 into build/ (opt-in: --animate)
   fab_all.py        Gerber + drill zips into out/        (opt-in: --fab)
 
 Run resolve_library.py once per machine first (creates library.json).
@@ -16,8 +17,9 @@ Usage:
   make.py                 # build + route every curated module
   make.py --clean         # wipe prior output first
   make.py --render        # also render the 3D montages at the end
+  make.py --animate       # also render the spinning 3D montage mp4 (~30 min)
   make.py --fab           # also export fab zips (Gerbers + drill) per module
-  make.py --all           # clean + build + route + render + fab
+  make.py --all           # clean + build + route + render + fab (NOT --animate)
   make.py --no-route      # build only (stop before routing)
   make.py --diff          # forward diff-pair routing to route_all
 """
@@ -67,6 +69,8 @@ def main(argv):
     ap.add_argument("--clean", action="store_true", help="wipe prior output first")
     ap.add_argument("--no-route", action="store_true", help="build only; stop before routing")
     ap.add_argument("--render", action="store_true", help="also render 3D montages at the end")
+    ap.add_argument("--animate", action="store_true",
+                    help="also render the spinning 3D montage mp4 (slow: ~30 min)")
     ap.add_argument("--fab", action="store_true", help="also export fab zips (Gerbers + drill)")
     ap.add_argument("--all", action="store_true", help="clean + build + route + render + fab")
     ap.add_argument("--no-diff", dest="diff", action="store_false",
@@ -106,6 +110,11 @@ def main(argv):
 
     if do_render:
         if stage("RENDER", "render_boards.py"):
+            return 1
+
+    # deliberately NOT part of --all: it renders ~1440 frames (~30 min)
+    if args.animate:
+        if stage("ANIMATE (spinning montage)", "animate_boards.py"):
             return 1
 
     if do_fab:

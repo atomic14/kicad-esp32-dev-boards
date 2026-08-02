@@ -37,6 +37,13 @@ cp build/montage_{top,bottom}_scale.png docs/images/
 cp build/ESP32-C3-WROOM-02/render_hero.png docs/images/hero.png
 ```
 
+`make.py --animate` adds the moving version: `build/montage_spin.mp4`, a
+2560×1440 grid of all 12 boards each turning a full 360° on a three-quarter
+tilt, staggered so the grid reads as a wave. The turn wraps exactly, so it
+loops seamlessly. It renders ~1440 frames and takes roughly half an hour —
+`--frames`/`--supersample` trade quality for time, and `--boards X --grid 1x1`
+renders a single board full-frame.
+
 ## Prerequisites (per machine)
 
 1. **KiCad 10.x** installed (the schematics use the v10 file format).
@@ -83,6 +90,7 @@ uv run python scripts/make.py             # build + route every board (THE comma
 uv run python scripts/make.py            # build + route all modules
 uv run python scripts/make.py --clean    # wipe prior output first
 uv run python scripts/make.py --render    # also render the 3D montages
+uv run python scripts/make.py --animate   # also render the spinning montage mp4 (~30 min)
 uv run python scripts/make.py --fab       # also export fab zips (Gerbers + drill)
 uv run python scripts/make.py --all       # clean + build + route + render + fab
 uv run python scripts/make.py --no-route  # build only
@@ -129,6 +137,7 @@ docs/images/             committed montage snapshots referenced by this README
 | `build_all.py [--clean]` | extract → build → validate every curated module | ✅ |
 | `route_all.py [--no-diff]` | autoroute every board (diff-pair with single-ended fallback; writes back in place) + DRC | ✅ |
 | `render_boards.py` | 3D montages of every board → `build/` (top, top-bare/no-components, bottom — each auto-fit AND to-scale — plus a perspective hero shot per board) | ✅ |
+| `animate_boards.py` | 2560×1440 mp4 of all 12 boards on 3D turntables → `build/montage_spin.mp4` (seamless 4 s loop; slow, ~30 min) | ✅ |
 | `fab_all.py` | Gerber + Excellon drill zip per board → `out/<M>/<M>-fab.zip` | ✅ |
 | `clean.py` | remove generated output for a fresh run — just `rm -rf out build`; the curated `modules/` source is never touched | ✅ |
 
